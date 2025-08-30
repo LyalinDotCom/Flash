@@ -6,6 +6,7 @@ import {
   executeCommandLive,
   removeCommandBlocks 
 } from '../cliTools.js';
+import { needsClarification, handleClarification } from '../interactive.js';
 
 const MAX_ITERATIONS = 5; // Prevent infinite loops
 
@@ -100,7 +101,40 @@ export async function executeCliSubMind(subMind, userRequest, generateFn, cfg) {
       }
     }
     
-    // No more commands to execute, return the final response
+    // Check if the agent needs clarification
+    if (needsClarification(response)) {
+      console.log(colorize(`✅ ${subMind.name} completed successfully!\n`, 'green'));
+      
+      // Handle clarification interactively
+      const clarifiedResponse = await handleClarification(response, async (additionalContext) => {
+        const updatedPrompt = prompt + `\nUser clarification: ${additionalContext}`;
+        const result = await generateFn(updatedPrompt, 'google', cfg.googleModel, cfg.temperature, cfg);
+        return result;
+      });
+      
+      if (clarifiedResponse && clarifiedResponse.ok) {
+        // Continue with the clarified response
+        const updatedResponse = clarifiedResponse.text;
+        
+        // Check if the clarified response has commands
+        if (hasCommandExecution(updatedResponse)) {
+          // Store this response and continue to next iteration
+          response = updatedResponse;
+          continue;
+        } else {
+          // Return the clarified response
+          return {
+            success: true,
+            response: removeCommandBlocks(updatedResponse),
+            subMindName: subMind.name,
+            iterations: iteration,
+            context
+          };
+        }
+      }
+    }
+    
+    // No more commands to execute and no clarification needed
     const cleanResponse = removeCommandBlocks(response);
     if (cleanResponse.trim()) {
       console.log(colorize(`✅ ${subMind.name} completed successfully!\n`, 'green'));
