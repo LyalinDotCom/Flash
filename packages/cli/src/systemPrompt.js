@@ -37,7 +37,7 @@ function osInfo() {
   };
 }
 
-export async function buildSystemPrompt({ provider, model, cliVersion }) {
+export async function buildSystemPrompt({ provider, model, cliVersion, isMainAgent = false }) {
   const when = localDateStrings();
   const sys = osInfo();
   const nodeVersion = process.version;
@@ -69,28 +69,35 @@ export async function buildSystemPrompt({ provider, model, cliVersion }) {
     '- When asking for clarification, start your response with "CLARIFICATION_NEEDED:"',
     '- Provide specific options or examples when asking for clarification.',
     '- Keep clarification questions brief and offer 2-3 numbered options when possible.',
-    '',
-    'File Tools:',
-    'You have access to file operations in the current directory only. Use these exact formats:',
-    '',
-    'To read a file:',
-    'READ_FILE: filename.txt',
-    '',
-    'To write a file:',
-    'WRITE_FILE: filename.txt',
-    'CONTENT:',
-    'Your file content goes here',
-    'Can be multiple lines',
-    'END_CONTENT',
-    '',
-    'Tool usage guidelines:',
-    '- Only filenames are allowed, no paths (e.g., "file.txt" not "/path/to/file.txt")',
-    '- You can only access files in the current working directory',
-    '- Always use tools when the user asks to read, write, create, or save files',
-    '- Include a natural response along with tool usage explaining what you are doing',
-    '- You can use multiple tools in one response if needed',
-    '- Example: "I\'ll create a file with Ohio facts for you.\n\nWRITE_FILE: ohio_facts.txt\nCONTENT:\n...\nEND_CONTENT"',
   ];
+  
+  // Add appropriate tool instructions based on context
+  if (!isMainAgent && provider !== 'google') {
+    // Local mode or sub-minds get file tools
+    lines.push(
+      '',
+      'File Tools:',
+      'You have access to file operations in the current directory only. Use these exact formats:',
+      '',
+      'To read a file:',
+      'READ_FILE: filename.txt',
+      '',
+      'To write a file:',
+      'WRITE_FILE: filename.txt',
+      'CONTENT:',
+      'Your file content goes here',
+      'Can be multiple lines',
+      'END_CONTENT',
+      '',
+      'Tool usage guidelines:',
+      '- Only filenames are allowed, no paths (e.g., "file.txt" not "/path/to/file.txt")',
+      '- You can only access files in the current working directory',
+      '- Always use tools when the user asks to read, write, create, or save files',
+      '- Include a natural response along with tool usage explaining what you are doing',
+      '- You can use multiple tools in one response if needed',
+      '- Example: "I\'ll create a file with Ohio facts for you.\\n\\nWRITE_FILE: ohio_facts.txt\\nCONTENT:\\n...\\nEND_CONTENT"'
+    );
+  }
 
   return lines.join('\n');
 }

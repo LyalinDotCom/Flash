@@ -19,6 +19,14 @@ import {
   executeTools, 
   removeToolCalls 
 } from './fileTools.js';
+import { registerIOSubMind } from './agents/ioSubMind.js';
+import { 
+  buildMainAgentPrompt, 
+  parseSubMindExecution, 
+  executeSubMind, 
+  hasSubMindExecution,
+  removeSubMindCommands
+} from './agents/mainAgent.js';
 
 function getAsciiArtWidth(ascii) {
   const lines = ascii.trim().split('\n');
@@ -62,7 +70,7 @@ function getPackageVersion() {
 }
 
 function printHelp() {
-  const help = `Flash CLI\n\n` +
+  const help = `Flash CLI - Multi-Agent AI Assistant\n\n` +
     `Usage:\n` +
     `  Flash [options] [message]\n\n` +
     `Options:\n` +
@@ -74,11 +82,17 @@ function printHelp() {
     `  --init           Setup local AI (install Ollama & models)\n` +
     `  --doctor         Check system health and configuration\n` +
     `  --show-system-prompt  Output the computed system prompt and exit\n\n` +
+    `Features:\n` +
+    `  • Multi-Agent System (Gemini): Automatically delegates specialized tasks\n` +
+    `  • File Operations: Read/write files in current directory\n` +
+    `  • Smart Clarifications: Asks for details when requests are ambiguous\n` +
+    `  • Auto-Fallback: Switches to local mode when offline\n\n` +
     `Examples:\n` +
     `  Flash --help\n` +
     `  Flash --version\n` +
     `  Flash --init     # Setup local AI\n` +
-    `  Flash "hello world"\n` +
+    `  Flash "list US states"          # Direct response\n` +
+    `  Flash "save US states to file"  # Delegates to I/O agent\n` +
     `  Flash -l "offline test"\n` +
     `  Flash --interactive`;
   console.log(help);
@@ -171,6 +185,38 @@ async function generateWithFallback(finalPrompt, provider, model, temperature, c
   }
 }
 
+// Handle multi-agent execution for Gemini
+async function handleMultiAgent(response, userMessage, provider, model, temperature, cfg) {
+  // Check if main agent wants to execute a sub-mind
+  if (hasSubMindExecution(response)) {
+    const execution = parseSubMindExecution(response);
+    if (execution) {
+      // Execute the sub-mind
+      const result = await executeSubMind(
+        execution.subMindId, 
+        execution.request,
+        async (prompt, provider, model, temp, config) => {
+          // This function will be called by the sub-mind to generate its response
+          const { res } = await generateWithFallback(prompt, provider, model, temp, config);
+          return res;
+        },
+        cfg
+      );
+      
+      if (result.success) {
+        // Handle any tools the sub-mind might have used
+        return await handleToolsAndGenerate(result.response, '', userMessage, provider, model, temperature, cfg);
+      } else {
+        return `Error executing sub-mind: ${result.error}`;
+      }
+    }
+  }
+  
+  // No sub-mind execution, check for main agent's direct response
+  const cleanResponse = removeSubMindCommands(response);
+  return cleanResponse;
+}
+
 // Handle tool execution and provide simple feedback
 async function handleToolsAndGenerate(response, sysPrompt, userMessage, provider, model, temperature, cfg) {
   // Check if response contains tool calls
@@ -211,6 +257,10 @@ async function handleToolsAndGenerate(response, sysPrompt, userMessage, provider
 export async function main() {
   // Load .env early so Genkit can read GEMINI_API_KEY / GOOGLE_API_KEY
   loadEnv();
+  
+  // Register sub-minds
+  registerIOSubMind();
+  
   const argv = process.argv.slice(2);
   const cfg = loadFlashConfig();
   if (argv.includes('-h') || argv.includes('--help')) {
@@ -275,8 +325,20 @@ export async function main() {
       }
     }
     
-    const sysPrompt = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion() });
-    const finalPrompt = `${sysPrompt}\n\nUser: ${message}`;
+    // Build appropriate system prompt based on provider
+    let sysPrompt;
+    let finalPrompt;
+    
+    if (provider === 'google') {
+      // For Gemini, use the main agent system prompt
+      const basePrompt = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion(), isMainAgent: true });
+      sysPrompt = buildMainAgentPrompt(basePrompt);
+      finalPrompt = `${sysPrompt}\n\nUser: ${message}`;
+    } else {
+      // For local mode, use the regular system prompt with file tools
+      sysPrompt = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion() });
+      finalPrompt = `${sysPrompt}\n\nUser: ${message}`;
+    }
 
     const { res, provider: usedProvider, model: usedModel } = await generateWithFallback(
       finalPrompt, provider, model, temperature, cfg
@@ -297,17 +359,35 @@ export async function main() {
         // Handle the clarification flow
         const clarifiedResponse = await handleClarification(res.text, generateFollowUp);
         if (clarifiedResponse && clarifiedResponse.ok) {
-          // Handle tool calls in clarified response
-          const finalResponse = await handleToolsAndGenerate(
-            clarifiedResponse.text, sysPrompt, message, usedProvider, usedModel, temperature, cfg
-          );
+          // Handle response based on provider
+          let finalResponse;
+          if (usedProvider === 'google') {
+            // For Gemini, use multi-agent handling
+            finalResponse = await handleMultiAgent(
+              clarifiedResponse.text, message, usedProvider, usedModel, temperature, cfg
+            );
+          } else {
+            // For local mode, use direct tool handling
+            finalResponse = await handleToolsAndGenerate(
+              clarifiedResponse.text, sysPrompt, message, usedProvider, usedModel, temperature, cfg
+            );
+          }
           console.log(finalResponse);
         }
       } else {
-        // Handle tool calls if present
-        const finalResponse = await handleToolsAndGenerate(
-          res.text, sysPrompt, message, usedProvider, usedModel, temperature, cfg
-        );
+        // Handle response based on provider
+        let finalResponse;
+        if (usedProvider === 'google') {
+          // For Gemini, use multi-agent handling
+          finalResponse = await handleMultiAgent(
+            res.text, message, usedProvider, usedModel, temperature, cfg
+          );
+        } else {
+          // For local mode, use direct tool handling
+          finalResponse = await handleToolsAndGenerate(
+            res.text, sysPrompt, message, usedProvider, usedModel, temperature, cfg
+          );
+        }
         console.log(finalResponse);
       }
     } else {

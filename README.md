@@ -1,9 +1,10 @@
 # Flash ⚡
 
-A smart AI assistant for your terminal that works both online and offline. Flash helps with quick commands, code snippets, and everyday developer tasks - no complex setup required.
+A smart multi-agent AI assistant for your terminal that works both online and offline. Flash helps with quick commands, code snippets, file operations, and everyday developer tasks - no complex setup required.
 
 ## Features
 
+- **🤖 Multi-Agent System** - Intelligent task delegation to specialized agents (Gemini)
 - **🌐 Works Everywhere** - Online with Google's Gemini, offline with local models
 - **🚀 Auto-Fallback** - Automatically switches to local mode when offline
 - **🎨 Beautiful CLI** - Colorful ASCII art that adapts to your terminal size
@@ -67,6 +68,19 @@ flash "read the package.json file"
 flash "write a Python hello world script"
 flash "save the 50 US state capitals to a CSV file"
 ```
+
+## Multi-Agent System (Gemini Mode)
+
+When using Gemini (cloud mode), Flash employs a sophisticated multi-agent architecture:
+
+- **Main Agent**: Analyzes your request and decides whether to handle it directly or delegate
+- **I/O Agent**: Specialized in file operations (reading/writing files)
+- **Smart Delegation**: Automatically routes tasks to the right agent
+
+Examples:
+- "What's the capital of France?" → Main agent responds directly
+- "Save the capitals of Europe to a file" → Delegates to I/O agent
+- "Read my config file and explain it" → Delegates to I/O agent
 
 ## File Operations
 
