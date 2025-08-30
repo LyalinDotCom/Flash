@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { colorize } from './colors.js';
+import { isImageFile, readImageAsBase64 } from './imageTools.js';
 
 // Security check - ensure filename is safe and in current directory
 function isValidFilename(filename) {
@@ -35,6 +36,29 @@ export async function readFile(filename) {
   
   try {
     const filepath = path.join(process.cwd(), filename);
+    
+    // Check if this is an image file
+    if (isImageFile(filename)) {
+      try {
+        const base64 = readImageAsBase64(filename);
+        const ext = path.extname(filename).toLowerCase().substring(1);
+        const mimeType = ext === 'jpg' ? 'jpeg' : ext;
+        return {
+          success: true,
+          content: `[Image file: ${filename}]\nBase64 data URL: data:image/${mimeType};base64,${base64.substring(0, 50)}...`,
+          filename,
+          isImage: true,
+          base64: base64
+        };
+      } catch (imgError) {
+        return {
+          success: false,
+          error: `Error reading image file: ${imgError.message}`
+        };
+      }
+    }
+    
+    // Regular text file
     const content = await fs.readFile(filepath, 'utf8');
     return {
       success: true,

@@ -20,6 +20,7 @@ import {
   removeToolCalls 
 } from './fileTools.js';
 import { registerIOSubMind } from './agents/ioSubMind.js';
+import { registerImageSubMind } from './agents/imageSubMind.js';
 import { 
   buildMainAgentPrompt, 
   parseSubMindExecution, 
@@ -27,6 +28,15 @@ import {
   hasSubMindExecution,
   removeSubMindCommands
 } from './agents/mainAgent.js';
+import {
+  hasImageGeneration,
+  hasImageWrite,
+  parseImageGeneration,
+  parseImageWrite,
+  generateImage,
+  writeImageFromBase64,
+  removeImageCommands
+} from './imageTools.js';
 
 function getAsciiArtWidth(ascii) {
   const lines = ascii.trim().split('\n');
@@ -84,15 +94,18 @@ function printHelp() {
     `  --show-system-prompt  Output the computed system prompt and exit\n\n` +
     `Features:\n` +
     `  • Multi-Agent System (Gemini): Automatically delegates specialized tasks\n` +
-    `  • File Operations: Read/write files in current directory\n` +
+    `  • Image Generation: Create images from prompts, combine source images\n` +
+    `  • File Operations: Read/write files and images in current directory\n` +
     `  • Smart Clarifications: Asks for details when requests are ambiguous\n` +
     `  • Auto-Fallback: Switches to local mode when offline\n\n` +
     `Examples:\n` +
     `  Flash --help\n` +
     `  Flash --version\n` +
     `  Flash --init     # Setup local AI\n` +
-    `  Flash "list US states"          # Direct response\n` +
-    `  Flash "save US states to file"  # Delegates to I/O agent\n` +
+    `  Flash "list US states"               # Direct response\n` +
+    `  Flash "save US states to file"       # Delegates to I/O agent\n` +
+    `  Flash "generate a sunset image"      # Delegates to Image agent\n` +
+    `  Flash "combine photo1.png photo2.png" # Image agent combines images\n` +
     `  Flash -l "offline test"\n` +
     `  Flash --interactive`;
   console.log(help);
@@ -219,22 +232,66 @@ async function handleMultiAgent(response, userMessage, provider, model, temperat
 
 // Handle tool execution and provide simple feedback
 async function handleToolsAndGenerate(response, sysPrompt, userMessage, provider, model, temperature, cfg) {
-  // Check if response contains tool calls
-  if (hasToolCalls(response)) {
+  let processedResponse = response;
+  let feedback = '';
+  
+  // Check for image generation
+  if (hasImageGeneration(processedResponse)) {
+    const imageGen = parseImageGeneration(processedResponse);
+    if (imageGen) {
+      const spinner = new Spinner('🎨 Generating image...');
+      spinner.start();
+      
+      const result = await generateImage(imageGen.prompt, imageGen.sourceFiles, cfg);
+      spinner.stop();
+      
+      if (result.success) {
+        // Auto-save the generated image
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+        const outputFilename = `generated_image_${timestamp}.png`;
+        
+        try {
+          writeImageFromBase64(outputFilename, result.imageData);
+          feedback += `\n✅ Generated image saved as: ${outputFilename}`;
+          if (result.text) {
+            feedback += `\n${result.text}`;
+          }
+        } catch (error) {
+          feedback += `\n❌ Failed to save image: ${error.message}`;
+        }
+      } else {
+        feedback += `\n❌ Image generation failed: ${result.error}`;
+      }
+      
+      processedResponse = removeImageCommands(processedResponse);
+    }
+  }
+  
+  // Check for image write
+  if (hasImageWrite(processedResponse)) {
+    const imageWrite = parseImageWrite(processedResponse);
+    if (imageWrite) {
+      try {
+        writeImageFromBase64(imageWrite.filename, imageWrite.base64Data);
+        feedback += `\n✅ Image saved as: ${imageWrite.filename}`;
+      } catch (error) {
+        feedback += `\n❌ Failed to save image: ${error.message}`;
+      }
+      
+      processedResponse = removeImageCommands(processedResponse);
+    }
+  }
+  
+  // Check if response contains file tool calls
+  if (hasToolCalls(processedResponse)) {
     // Parse and execute tools
-    const toolCalls = parseToolCalls(response);
+    const toolCalls = parseToolCalls(processedResponse);
     const toolResults = await executeTools(toolCalls);
     
     // Get the clean response without tool calls
-    const cleanResponse = removeToolCalls(response);
+    processedResponse = removeToolCalls(processedResponse);
     
-    // If there's a clean response from the AI, show it
-    if (cleanResponse.trim()) {
-      return cleanResponse;
-    }
-    
-    // Otherwise, provide simple feedback about what was done
-    let feedback = '';
+    // Add feedback for file operations
     for (const result of toolResults) {
       if (result.tool === 'read') {
         if (result.content) {
@@ -246,12 +303,14 @@ async function handleToolsAndGenerate(response, sysPrompt, userMessage, provider
         }
       }
     }
-    
-    return feedback || 'Operation completed.';
   }
   
-  // No tools, return response as-is
-  return response;
+  // Return clean response with any feedback
+  if (processedResponse.trim()) {
+    return processedResponse + (feedback ? `\n${feedback}` : '');
+  }
+  
+  return feedback || 'Operation completed.';
 }
 
 export async function main() {
@@ -260,6 +319,7 @@ export async function main() {
   
   // Register sub-minds
   registerIOSubMind();
+  registerImageSubMind();
   
   const argv = process.argv.slice(2);
   const cfg = loadFlashConfig();

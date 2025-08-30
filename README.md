@@ -11,6 +11,7 @@ A smart multi-agent AI assistant for your terminal that works both online and of
 - **⚡ Lightning Fast** - Optimized for quick, practical responses
 - **🔧 Zero Config** - Works out of the box with smart defaults
 - **📁 File Operations** - Read and write files in your current directory
+- **🖼️ Image Generation** - Create images from text prompts and combine source images
 - **💬 Smart Clarifications** - Asks for details when your request is ambiguous
 
 ## Quick Start
@@ -67,6 +68,12 @@ flash "create a shopping list file"
 flash "read the package.json file"
 flash "write a Python hello world script"
 flash "save the 50 US state capitals to a CSV file"
+
+# Image generation
+flash "generate an image of a cyberpunk city"
+flash "create a logo for a coffee shop"
+flash "combine these photos into one image"
+flash "add a sunset background to my photo.png"
 ```
 
 ## Multi-Agent System (Gemini Mode)
@@ -75,20 +82,33 @@ When using Gemini (cloud mode), Flash employs a sophisticated multi-agent archit
 
 - **Main Agent**: Analyzes your request and decides whether to handle it directly or delegate
 - **I/O Agent**: Specialized in file operations (reading/writing files)
+- **Image Agent**: Specialized in generating and manipulating images
 - **Smart Delegation**: Automatically routes tasks to the right agent
 
 Examples:
 - "What's the capital of France?" → Main agent responds directly
 - "Save the capitals of Europe to a file" → Delegates to I/O agent
-- "Read my config file and explain it" → Delegates to I/O agent
+- "Generate an image of a mountain" → Delegates to Image agent
+- "Combine photo1.png with photo2.png" → Delegates to Image agent
 
 ## File Operations
 
 Flash can read and write files in your current directory. Just ask naturally:
 
-- **Reading**: "show me what's in config.json"
+- **Reading**: "show me what's in config.json", "read my image.png"
 - **Writing**: "create a todo list", "save this to notes.txt"
 - **Security**: Flash can only access files in the current directory (no paths allowed)
+
+## Image Generation (Gemini Mode)
+
+Flash can generate images using Gemini's advanced image generation capabilities:
+
+- **Text to Image**: "generate an image of a futuristic city"
+- **Image Combination**: "combine photo1.png with photo2.png"
+- **Image + Text**: "add this plant to my room photo"
+- **Auto-Save**: Generated images are automatically saved with timestamps
+
+Supported formats: PNG, JPG, JPEG, GIF, WebP
 
 ## Offline Mode
 
