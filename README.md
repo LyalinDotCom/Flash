@@ -1,244 +1,118 @@
-# Flash CLI
+# Flash ⚡
 
-Flash is a lightweight, terminal-first AI helper inspired by the Gemini CLI architecture, tailored for quick requests at the command line. It favors a simple, fast workflow while doing its best on more complex tasks when you need it.
+A smart AI assistant for your terminal that works both online and offline. Flash helps with quick commands, code snippets, and everyday developer tasks - no complex setup required.
 
-- Local AI via Genkit + Ollama
-- Cloud AI via Genkit + Google Gemini
-- System-aware hidden prompt for OS-correct commands
-- Minimal setup; no heavy IDE requirements
+## Features
 
-> Why another CLI? We wanted a small, practical utility focused on everyday developer prompts in a terminal. Flash is intentionally lean, with sensible defaults and a clear path for growth.
+- **🌐 Works Everywhere** - Online with Google's Gemini, offline with local models
+- **🚀 Auto-Fallback** - Automatically switches to local mode when offline
+- **🎨 Beautiful CLI** - Colorful ASCII art that adapts to your terminal size
+- **⚡ Lightning Fast** - Optimized for quick, practical responses
+- **🔧 Zero Config** - Works out of the box with smart defaults
 
----
+## Quick Start
 
-## Quick Look
-
-Run with no arguments to see the welcome banner and basics:
-
-```bash
-flash
-```
-
-Ask something simple (cloud by default):
+### Install from GitHub
 
 ```bash
-flash "create a git alias for amend push"
+# Clone and install
+git clone https://github.com/yourusername/Flash.git
+cd Flash
+npm install
+npm link
+
+# First time setup (installs Ollama & downloads AI model)
+flash --init
+
+# You're ready!
+flash "how do I undo my last git commit?"
 ```
 
-Use your local model via Ollama (no need to specify `-m`):
+### Basic Usage
 
 ```bash
-flash -l "what is the capital of ohio"
+# Ask anything (uses cloud by default, falls back to local if offline)
+flash "create a Python function to validate email addresses"
+
+# Force local mode
+flash -l "explain Docker volumes"
+
+# Check system health
+flash --doctor
+
+# See all options
+flash --help
 ```
 
-Show the hidden system prompt Flash sends (for debugging):
+## Examples
 
 ```bash
-flash --show-system-prompt
+# Quick commands
+flash "chmod command to make a script executable"
+
+# Code generation
+flash "write a React hook for localStorage"
+
+# System help
+flash "how to find large files on macOS"
+
+# Piped input
+cat error.log | flash "explain this error"
 ```
 
----
+## Offline Mode
+
+Flash automatically works offline! When you run `flash --init`, it sets up everything needed for local AI. If you lose internet connection, Flash seamlessly switches to your local model.
+
+To always use local mode:
+```bash
+flash -l "your question here"
+```
+
+## Commands
+
+- `flash [message]` - Ask Flash anything
+- `flash --init` - Set up local AI (one-time setup)
+- `flash --doctor` - Check if everything is working
+- `flash --help` - Show help
+- `flash --version` - Show version
+- `flash -l` - Use local AI model
+- `flash -i` - Interactive mode
 
 ## Requirements
 
 - Node.js 20 or newer
-- macOS / Linux / Windows (local support is optimized for macOS/Linux)
-- For cloud mode: a valid `GEMINI_API_KEY` (or `GOOGLE_API_KEY`)
-- For local mode:
-  - Ollama installed and running
-  - Model pulled (default: `gemma3n:e4b`)
-
----
-
-## Install (from this repo)
-
-You have two simple ways to run Flash from this repository.
-
-### Option A: Local project link (recommended)
-
-This keeps everything inside the repo and avoids global npm permissions.
-
-```bash
-# From the repo root
-node Flash/scripts/build.js
-node Flash/scripts/link-local.js
-
-# Add Flash’s local bin to your PATH (current shell)
-export PATH="$PWD/Flash/.global/bin:$PATH"
-
-# Test
-flash --version
-flash --help
-```
-
-To make PATH persistent, add the export line to your shell profile (e.g., `~/.zshrc`).
-
-### Option B: npm link (global)
-
-If your npm global prefix is user-writable (e.g., via nvm), you can:
-
-```bash
-cd Flash
-npm link
-
-# Then
-flash --help
-```
-
-If you see EACCES errors on macOS, prefer Option A or switch to an nvm-managed Node.
-
----
-
-## Provider Setup
-
-### Cloud (Gemini via Genkit)
-
-1) Set your API key in `.env` (Flash loads `.env` from current dir, `Flash/.env`, or `Flash/packages/genkit/.env`).
-
-```bash
-# .env
-GEMINI_API_KEY=YOUR_KEY
-```
-
-2) Build the Genkit package:
-
-```bash
-cd Flash/packages/genkit
-npm install
-npm run build
-```
-
-3) Use Flash normally (cloud is default):
-
-```bash
-flash "explain what git worktrees are"
-```
-
-### Local (Ollama via Genkit)
-
-1) Install and start Ollama, then pull the default model:
-
-```bash
-ollama pull gemma3n:e4b
-```
-
-2) Build the Genkit package (once):
-
-```bash
-cd Flash/packages/genkit
-npm install
-npm run build
-```
-
-3) Run with `-l` (no `-m` needed):
-
-```bash
-flash -l "summarize SOLID principles"
-```
-
-Optional: override the model:
-
-```bash
-flash -l -m gemma3n:e4b "write a short haiku about koalas"
-```
-
-If your Ollama host isn’t the default, set:
-
-```bash
-export OLLAMA_HOST="http://127.0.0.1:11434"
-```
-
----
-
-## Configuration
-
-Flash reads `Flash/flash.config.json`:
-
-```json
-{
-  "defaultProvider": "google",
-  "googleModel": "gemini-2.5-flash",
-  "localModel": "gemma3n:e4b",
-  "temperature": 0.7
-}
-```
-
-- `defaultProvider`: `google` or `local`
-- `googleModel`: default Gemini model when cloud provider is used
-- `localModel`: default Ollama model (used when `-l` is passed)
-- `temperature`: generation temperature for both providers
-
-Flash also loads `.env` for provider credentials:
-- `GEMINI_API_KEY` or `GOOGLE_API_KEY` (cloud)
-- `OLLAMA_HOST` (local, optional)
-
----
-
-## Usage
-
-```bash
-# Cloud default
-flash "create a bash alias to cd into ~/Source"
-
-# Local via Ollama (default model from config)
-flash -l "how do I check my Node version?"
-
-# Override model explicitly
-flash -l -m gemma3n:e4b "summarize yesterday’s git commits"
-
-# Pipe input
-cat README.md | flash
-
-# Inspect hidden system context used in prompts
-flash --show-system-prompt
-
-# Help
-flash --help
-```
-
-What Flash does by default:
-- Prepends a hidden system prompt to improve OS-appropriate instructions (date/time, OS, Node/npm, shell, terminal, cwd, provider/model, etc.)
-- Chooses the right provider based on flags and config
-- Keeps output concise and focused for terminal workflows
-
----
-
-## Philosophy & Roadmap
-
-- Terminal-first. Simple, fast, predictable.
-- Local-first option via Ollama, cloud power via Gemini when needed.
-- Start simple, scale as needed: better parsing, multi-step agents, more flows.
-
-Planned (subject to change):
-- Richer argument parsing and subcommands
-- Optional interactive UI (Ink)
-- Small library of “flows” for common DevOps/dev tasks
-
----
+- macOS, Linux, or Windows
+- Internet connection (for cloud mode)
+- 2GB disk space (for local AI model)
 
 ## Troubleshooting
 
-- Flash command not found
-  - Ensure PATH includes `Flash/.global/bin`: `export PATH="$PWD/Flash/.global/bin:$PATH"`
-  - Or use `cd Flash && npm link` with an nvm-managed Node
+Run `flash --doctor` to diagnose any issues. Common fixes:
 
-- Local model errors
-  - Verify Ollama is running and model exists: `ollama list`
-  - Pull default model: `ollama pull gemma3n:e4b`
-  - Ensure Genkit package is built: `cd Flash/packages/genkit && npm install && npm run build`
+**Flash command not found**
+```bash
+npm link  # Run from the Flash directory
+```
 
-- Cloud auth errors
-  - Ensure `.env` contains `GEMINI_API_KEY` (or `GOOGLE_API_KEY`)
-  - Rebuild if needed: `node Flash/scripts/build.js`
+**Local mode not working**
+```bash
+flash --init  # This will set up everything needed
+```
 
----
+**API errors**
+- For cloud mode, set your Gemini API key:
+  ```bash
+  echo "GEMINI_API_KEY=your-key-here" > .env
+  ```
+- Get a free key at https://makersuite.google.com/app/apikey
 
-## Contributing
+## Privacy
 
-Feedback, ideas, and contributions are welcome. This project is intentionally small — please open issues/PRs with focused changes.
-
----
+- **Local mode**: All processing happens on your machine
+- **Cloud mode**: Queries are sent to Google's Gemini API
+- Flash never stores or logs your queries
 
 ## License
 
-TBD (for now, this repo is for local development/testing). If you plan to distribute, add an appropriate license.
+MIT
