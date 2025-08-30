@@ -23,6 +23,7 @@ import {
 } from './fileTools.js';
 import { registerIOSubMind } from './agents/ioSubMind.js';
 import { registerImageSubMind } from './agents/imageSubMind.js';
+import { registerCLISubMind } from './agents/cliSubMind.js';
 import { 
   buildMainAgentPrompt, 
   parseSubMindExecution, 
@@ -30,6 +31,12 @@ import {
   hasSubMindExecution,
   removeSubMindCommands
 } from './agents/mainAgent.js';
+import {
+  hasCommandExecution,
+  parseCommandExecution,
+  executeCommandLive,
+  removeCommandBlocks
+} from './cliTools.js';
 import {
   hasImageGeneration,
   hasImageWrite,
@@ -97,6 +104,7 @@ function printHelp() {
     `  --show-system-prompt  Output the computed system prompt and exit\n\n` +
     `Features:\n` +
     `  • Multi-Agent System (Gemini): Automatically delegates specialized tasks\n` +
+    `  • CLI Assistant: Execute terminal commands using natural language\n` +
     `  • Image Generation: Create images from prompts, combine source images\n` +
     `  • File Operations: Read/write files and images in current directory\n` +
     `  • Smart Clarifications: Asks for details when requests are ambiguous\n` +
@@ -109,6 +117,8 @@ function printHelp() {
     `  Flash "save US states to file"       # Delegates to I/O agent\n` +
     `  Flash "generate a sunset image"      # Delegates to Image agent\n` +
     `  Flash "combine photo1.png photo2.png" # Image agent combines images\n` +
+    `  Flash "deploy to firebase"           # Delegates to CLI agent\n` +
+    `  Flash "run the build process"        # CLI agent executes build\n` +
     `  Flash -l "offline test"\n` +
     `  Flash .                              # Multiline input mode\n` +
     `  Flash --interactive`;
@@ -314,6 +324,23 @@ async function handleToolsAndGenerate(response, sysPrompt, userMessage, provider
     }
   }
   
+  // Check for command execution
+  if (hasCommandExecution(processedResponse)) {
+    const cmdExec = parseCommandExecution(processedResponse);
+    if (cmdExec) {
+      const result = await executeCommandLive(cmdExec.command, {
+        workingDir: cmdExec.workingDir,
+        checkFirst: cmdExec.checkFirst
+      });
+      
+      if (!result.success) {
+        feedback += `\n❌ Command execution failed: ${result.error}`;
+      }
+      
+      processedResponse = removeCommandBlocks(processedResponse);
+    }
+  }
+  
   // Check if response contains file tool calls
   if (hasToolCalls(processedResponse)) {
     // Parse and execute tools
@@ -352,6 +379,7 @@ export async function main() {
   // Register sub-minds
   registerIOSubMind();
   registerImageSubMind();
+  registerCLISubMind();
   
   const argv = process.argv.slice(2);
   const cfg = loadFlashConfig();

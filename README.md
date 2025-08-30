@@ -74,6 +74,13 @@ flash "generate an image of a cyberpunk city"
 flash "create a logo for a coffee shop"
 flash "combine these photos into one image"
 flash "add a sunset background to my photo.png"
+
+# CLI operations
+flash "deploy to firebase"
+flash "run the tests"
+flash "build and deploy the app"
+flash "check what version of node I have"
+flash "commit my changes with a good message"
 ```
 
 ## Multi-Agent System (Gemini Mode)
@@ -83,13 +90,15 @@ When using Gemini (cloud mode), Flash employs a sophisticated multi-agent archit
 - **Main Agent**: Analyzes your request and decides whether to handle it directly or delegate
 - **I/O Agent**: Specialized in file operations (reading/writing files)
 - **Image Agent**: Specialized in generating and manipulating images
+- **CLI Assistant**: Executes terminal commands based on natural language
 - **Smart Delegation**: Automatically routes tasks to the right agent
 
 Examples:
 - "What's the capital of France?" → Main agent responds directly
 - "Save the capitals of Europe to a file" → Delegates to I/O agent
 - "Generate an image of a mountain" → Delegates to Image agent
-- "Combine photo1.png with photo2.png" → Delegates to Image agent
+- "Deploy to production" → Delegates to CLI assistant
+- "Run the build process" → Delegates to CLI assistant
 
 ## File Operations
 
@@ -109,6 +118,21 @@ Flash can generate images using Gemini's advanced image generation capabilities:
 - **Auto-Save**: Generated images are automatically saved with timestamps
 
 Supported formats: PNG, JPG, JPEG, GIF, WebP
+
+## CLI Assistant (Gemini Mode)
+
+Flash can execute terminal commands using natural language:
+
+- **Smart Command Detection**: Understands what you want to do
+- **Prerequisite Checking**: Verifies tools are installed
+- **Live Output**: Shows command output as it runs
+- **Error Handling**: Provides helpful feedback on failures
+
+Examples:
+- "deploy to firebase" → Checks firebase CLI, runs deployment
+- "run the tests" → Detects test framework, executes tests
+- "build the React app" → Finds build script, runs it
+- "check my node version" → Runs `node --version`
 
 ## Offline Mode
 

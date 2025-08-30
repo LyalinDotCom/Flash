@@ -16,5 +16,8 @@
     "link:local": "node scripts/link-local.js",
     "start": "node bundle/flash.js",
     "dev": "node packages/cli/index.js"
+  },
+  "dependencies": {
+    "execa": "^9.6.0"
   }
 }
