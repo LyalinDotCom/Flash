@@ -4,10 +4,12 @@ import {
   hasCommandExecution, 
   parseCommandExecution, 
   executeCommandLive,
-  removeCommandBlocks 
+  removeCommandBlocks,
+  isDestructiveCommand
 } from '../cliTools.js';
 import { needsClarification, handleClarification } from '../interactive.js';
 import { safeCopyToClipboard } from '../clipboard.js';
+import { confirmDestructiveCommand } from '../confirm.js';
 
 const MAX_ITERATIONS = 5; // Prevent infinite loops
 
@@ -72,7 +74,7 @@ export async function executeCliSubMind(subMind, userRequest, generateFn, cfg) {
       };
     }
     
-    const response = result.text;
+    let response = result.text;
     
     // Check if the agent wants to execute a command
     if (hasCommandExecution(response)) {
@@ -86,11 +88,30 @@ export async function executeCliSubMind(subMind, userRequest, generateFn, cfg) {
           result: 'Pending'
         };
         
-        // Execute the command
+        // Check if command is marked as destructive by the LLM or detected as destructive
+        const needsConfirmation = cmdExec.isDestructive || isDestructiveCommand(cmdExec.command);
+        
+        if (needsConfirmation && cfg.confirmDestructiveCommands !== false) {
+          // Show real confirmation dialog
+          const confirmed = await confirmDestructiveCommand(cmdExec.command);
+          if (!confirmed) {
+            console.log(colorize(`✅ ${subMind.name} stopped - command cancelled by user\n`, 'green'));
+            return {
+              success: true,
+              response: 'The command was cancelled for safety reasons.',
+              subMindName: subMind.name,
+              iterations: iteration,
+              context
+            };
+          }
+        }
+        
+        // Execute the command (confirmation already handled if needed)
         lastCommandResult = await executeCommandLive(cmdExec.command, {
           workingDir: cmdExec.workingDir,
           checkFirst: cmdExec.checkFirst,
-          config: cfg
+          config: cfg,
+          skipConfirmation: true  // Already confirmed above
         });
         
         // Check if command was cancelled by user
@@ -140,13 +161,13 @@ export async function executeCliSubMind(subMind, userRequest, generateFn, cfg) {
       }
     }
     
-    // Check if the agent needs clarification
+    // Check if the agent needs clarification (but not for destructive commands - those are handled in code)
     if (needsClarification(response)) {
       console.log(colorize(`✅ ${subMind.name} completed successfully!\n`, 'green'));
       
       // Handle clarification interactively
       const clarifiedResponse = await handleClarification(response, async (additionalContext) => {
-        const updatedPrompt = prompt + `\nUser clarification: ${additionalContext}`;
+        const updatedPrompt = prompt + `\n\nUser clarification: ${additionalContext}`;
         const result = await generateFn(updatedPrompt, 'google', cfg.googleModel, cfg.temperature, cfg);
         return result;
       });

@@ -23,6 +23,9 @@ export async function commandExists(command) {
 
 // Parse EXECUTE_COMMAND blocks
 export function parseCommandExecution(text) {
+  // Check if marked as destructive
+  const isDestructive = text.includes('DESTRUCTIVE_COMMAND: true');
+  
   const match = text.match(/EXECUTE_COMMAND:\s*\nCOMMAND:\s*(.+?)(?:\nWORKING_DIR:\s*(.+?))?(?:\nCHECK_FIRST:\s*(.+?))?\s*\nEND_EXECUTE/s);
   
   if (!match) return null;
@@ -30,7 +33,8 @@ export function parseCommandExecution(text) {
   return {
     command: match[1].trim(),
     workingDir: match[2]?.trim(),
-    checkFirst: match[3]?.trim()
+    checkFirst: match[3]?.trim(),
+    isDestructive
   };
 }
 
