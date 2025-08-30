@@ -87,18 +87,48 @@ flash "commit my changes with a good message"
 
 When using Gemini (cloud mode), Flash employs a sophisticated multi-agent architecture:
 
-- **Main Agent**: Analyzes your request and decides whether to handle it directly or delegate
-- **I/O Agent**: Specialized in file operations (reading/writing files)
-- **Image Agent**: Specialized in generating and manipulating images
-- **CLI Assistant**: Executes terminal commands based on natural language
-- **Smart Delegation**: Automatically routes tasks to the right agent
+### Main Agent (Router)
+The main agent analyzes your request and decides whether to:
+- Respond directly for general questions
+- Delegate to a specialized sub-agent
+- Ask for clarification if the request is ambiguous
 
-Examples:
+### Specialized Sub-Agents:
+
+#### 📋 I/O Agent
+- **Description**: Handles file reading and writing operations in the current directory
+- **Tools**: read_file, write_file
+- **Example prompts**:
+  - "read the package.json file"
+  - "save this to notes.txt"
+  - "create a shopping list"
+  - "show me what's in config.json"
+
+#### 📋 Image Generation Agent
+- **Description**: Handles image generation, manipulation, and saving. Can generate images from text prompts and combine multiple source images.
+- **Tools**: generate_image, read_file, write_image
+- **Example prompts**:
+  - "generate an image of a sunset over mountains"
+  - "create a logo for my startup"
+  - "combine these two images"
+  - "add this object to my photo"
+
+#### 📋 CLI Assistant
+- **Description**: Executes terminal commands based on natural language requests. Can check prerequisites, run commands with live output, and handle complex multi-step operations.
+- **Tools**: execute_command
+- **Example prompts**:
+  - "deploy to firebase"
+  - "run the build process"
+  - "start the development server"
+  - "install dependencies"
+  - "run tests"
+
+### Usage Examples:
 - "What's the capital of France?" → Main agent responds directly
 - "Save the capitals of Europe to a file" → Delegates to I/O agent
 - "Generate an image of a mountain" → Delegates to Image agent
 - "Deploy to production" → Delegates to CLI assistant
-- "Run the build process" → Delegates to CLI assistant
+- "Build and run tests" → CLI assistant handles multi-step tasks
 
 ## File Operations
 
@@ -124,8 +154,10 @@ Supported formats: PNG, JPG, JPEG, GIF, WebP
 Flash can execute terminal commands using natural language:
 
 - **Smart Command Detection**: Understands what you want to do
+- **Iterative Execution**: Can run multiple commands based on results
 - **Prerequisite Checking**: Verifies tools are installed
 - **Live Output**: Shows command output as it runs
+- **Context Awareness**: Learns from command outputs to make decisions
 - **Error Handling**: Provides helpful feedback on failures
 
 Examples:
@@ -133,6 +165,7 @@ Examples:
 - "run the tests" → Detects test framework, executes tests
 - "build the React app" → Finds build script, runs it
 - "check my node version" → Runs `node --version`
+- "install firebase tools" → Checks npm, installs package, verifies
 
 ## Offline Mode
 
@@ -146,8 +179,10 @@ flash -l "your question here"
 ## Commands
 
 - `flash [message]` - Ask Flash anything
+- `flash .` - Enter multiline mode (press Enter twice to submit)
 - `flash --init` - Set up local AI (one-time setup)
 - `flash --doctor` - Check if everything is working
+- `flash --agents` - Show all available agents and their capabilities
 - `flash --help` - Show help
 - `flash --version` - Show version
 - `flash -l` - Use local AI model

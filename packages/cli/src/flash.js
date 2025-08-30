@@ -46,6 +46,7 @@ import {
   writeImageFromBase64,
   removeImageCommands
 } from './imageTools.js';
+import { showAgents } from './showAgents.js';
 
 function getAsciiArtWidth(ascii) {
   const lines = ascii.trim().split('\n');
@@ -101,6 +102,7 @@ function printHelp() {
     `  -m, --model <m>  Override model name (provider-specific)\n` +
     `  --init           Setup local AI (install Ollama & models)\n` +
     `  --doctor         Check system health and configuration\n` +
+    `  --agents         Show all available agents and their capabilities\n` +
     `  --show-system-prompt  Output the computed system prompt and exit\n\n` +
     `Features:\n` +
     `  • Multi-Agent System (Gemini): Automatically delegates specialized tasks\n` +
@@ -422,6 +424,10 @@ export async function main() {
   }
   if (argv.includes('--doctor')) {
     await runDoctor();
+    return;
+  }
+  if (argv.includes('--agents')) {
+    showAgents();
     return;
   }
 
