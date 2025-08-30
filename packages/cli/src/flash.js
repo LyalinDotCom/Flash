@@ -12,6 +12,7 @@ import { checkInternetConnection, isOllamaRunning } from './utils.js';
 import { runInit } from './init.js';
 import { runDoctor } from './doctor.js';
 import { Spinner } from './spinner.js';
+import { handleClarification, needsClarification } from './interactive.js';
 
 function getAsciiArtWidth(ascii) {
   const lines = ascii.trim().split('\n');
@@ -239,7 +240,25 @@ export async function main() {
     );
     
     if (res.ok) {
-      console.log(res.text);
+      // Check if clarification is needed
+      if (needsClarification(res.text)) {
+        // Create a function to generate follow-up responses
+        const generateFollowUp = async (additionalContext) => {
+          const updatedPrompt = `${sysPrompt}\n\nUser: ${message}${additionalContext}`;
+          const result = await generateWithFallback(
+            updatedPrompt, usedProvider, usedModel, temperature, cfg
+          );
+          return result.res;
+        };
+        
+        // Handle the clarification flow
+        const clarifiedResponse = await handleClarification(res.text, generateFollowUp);
+        if (clarifiedResponse && clarifiedResponse.ok) {
+          console.log(clarifiedResponse.text);
+        }
+      } else {
+        console.log(res.text);
+      }
     } else {
       console.error(`[Flash] Generation failed: ${res.error}`);
       console.log(`\nTroubleshooting tips:`);
@@ -274,12 +293,30 @@ export async function main() {
       const sysPrompt = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion() });
       const finalPrompt = `${sysPrompt}\n\nUser: ${stdinText}`;
       
-      const { res } = await generateWithFallback(
+      const { res, provider: usedProvider, model: usedModel } = await generateWithFallback(
         finalPrompt, provider, model, temperature, cfg
       );
       
       if (res.ok) {
-        console.log(res.text);
+        // Check if clarification is needed
+        if (needsClarification(res.text)) {
+          // Create a function to generate follow-up responses
+          const generateFollowUp = async (additionalContext) => {
+            const updatedPrompt = `${sysPrompt}\n\nUser: ${stdinText}${additionalContext}`;
+            const result = await generateWithFallback(
+              updatedPrompt, usedProvider, usedModel, temperature, cfg
+            );
+            return result.res;
+          };
+          
+          // Handle the clarification flow
+          const clarifiedResponse = await handleClarification(res.text, generateFollowUp);
+          if (clarifiedResponse && clarifiedResponse.ok) {
+            console.log(clarifiedResponse.text);
+          }
+        } else {
+          console.log(res.text);
+        }
       } else {
         console.error(`[Flash] Generation failed: ${res.error}`);
       }

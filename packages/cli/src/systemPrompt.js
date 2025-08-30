@@ -63,6 +63,12 @@ export async function buildSystemPrompt({ provider, model, cliVersion }) {
     `- Provide instructions tailored for ${sys.platform} on ${sys.type}.`,
     '- Prefer macOS/Linux POSIX shell commands when on darwin/linux; avoid Windows-specific commands unless asked.',
     '- Keep answers concise and actionable for terminal usage.',
+    '',
+    'Clarification handling:',
+    '- If the user request is ambiguous or unclear, ask for clarification.',
+    '- When asking for clarification, start your response with "CLARIFICATION_NEEDED:"',
+    '- Provide specific options or examples when asking for clarification.',
+    '- Keep clarification questions brief and offer 2-3 numbered options when possible.',
   ];
 
   return lines.join('\n');
