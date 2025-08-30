@@ -35,6 +35,8 @@ import {
   executeCommandLive,
   removeCommandBlocks
 } from './cliTools.js';
+import { executeCliSubMind } from './agents/cliExecutor.js';
+import { getSubMind } from './agents/registry.js';
 import {
   hasImageGeneration,
   hasImageWrite,
@@ -244,23 +246,44 @@ async function handleMultiAgent(response, userMessage, provider, model, temperat
   if (hasSubMindExecution(response)) {
     const execution = parseSubMindExecution(response);
     if (execution) {
-      // Execute the sub-mind
-      const result = await executeSubMind(
-        execution.subMindId, 
-        execution.request,
-        async (prompt, provider, model, temp, config) => {
-          // This function will be called by the sub-mind to generate its response
-          const { res } = await generateWithFallback(prompt, provider, model, temp, config);
-          return res;
-        },
-        cfg
-      );
-      
-      if (result.success) {
-        // Handle any tools the sub-mind might have used
-        return await handleToolsAndGenerate(result.response, '', userMessage, provider, model, temperature, cfg);
+      // Check if it's the CLI sub-mind for special handling
+      if (execution.subMindId === 'cli') {
+        const subMind = getSubMind('cli');
+        if (subMind) {
+          const result = await executeCliSubMind(
+            subMind,
+            execution.request,
+            async (prompt, provider, model, temp, config) => {
+              const { res } = await generateWithFallback(prompt, provider, model, temp, config);
+              return res;
+            },
+            cfg
+          );
+          
+          if (result.success) {
+            return result.response;
+          } else {
+            return `Error executing CLI assistant: ${result.error}`;
+          }
+        }
       } else {
-        return `Error executing sub-mind: ${result.error}`;
+        // Regular sub-mind execution
+        const result = await executeSubMind(
+          execution.subMindId, 
+          execution.request,
+          async (prompt, provider, model, temp, config) => {
+            const { res } = await generateWithFallback(prompt, provider, model, temp, config);
+            return res;
+          },
+          cfg
+        );
+        
+        if (result.success) {
+          // Handle any tools the sub-mind might have used
+          return await handleToolsAndGenerate(result.response, '', userMessage, provider, model, temperature, cfg);
+        } else {
+          return `Error executing sub-mind: ${result.error}`;
+        }
       }
     }
   }

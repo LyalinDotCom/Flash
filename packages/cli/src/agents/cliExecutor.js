@@ -48,7 +48,7 @@ export async function executeCliSubMind(subMind, userRequest, generateFn, cfg) {
       if (!lastCommandResult.success) {
         prompt += `Error: ${lastCommandResult.error}\n`;
       }
-      prompt += '\nBased on this result, what would you like to do next?\n`;
+      prompt += '\nBased on this result, what would you like to do next?\n';
       prompt += 'You can:\n';
       prompt += '1. Run another command to continue the task\n';
       prompt += '2. Provide a final response if the task is complete\n';
