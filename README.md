@@ -216,6 +216,23 @@ flash --init  # This will set up everything needed
   ```
 - Get a free key at https://makersuite.google.com/app/apikey
 
+## Configuration
+
+Flash can be configured using a `flash.config.json` file in your project root:
+
+```json
+{
+  "defaultProvider": "google",
+  "googleModel": "gemini-2.5-flash",
+  "localModel": "gemma3n:e4b",
+  "temperature": 0.7,
+  "copyInteractiveCommands": true
+}
+```
+
+Settings:
+- `copyInteractiveCommands`: Automatically copy commands to clipboard when interactive input is detected (default: true)
+
 ## Privacy
 
 - **Local mode**: All processing happens on your machine

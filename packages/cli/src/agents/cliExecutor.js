@@ -7,6 +7,7 @@ import {
   removeCommandBlocks 
 } from '../cliTools.js';
 import { needsClarification, handleClarification } from '../interactive.js';
+import { safeCopyToClipboard } from '../clipboard.js';
 
 const MAX_ITERATIONS = 5; // Prevent infinite loops
 
@@ -90,6 +91,31 @@ export async function executeCliSubMind(subMind, userRequest, generateFn, cfg) {
           workingDir: cmdExec.workingDir,
           checkFirst: cmdExec.checkFirst
         });
+        
+        // Check if command requires interactive input
+        if (lastCommandResult.isInteractive) {
+          // The command was terminated because it's waiting for input
+          console.log(colorize('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'yellow'));
+          console.log(colorize('⚠️  Interactive input required', 'yellow'));
+          console.log(colorize('💡 Run this command directly in your terminal:', 'yellow'));
+          console.log(colorize(`   ${cmdExec.command}`, 'brightCyan'));
+          console.log(colorize('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'yellow'));
+          
+          // Copy command to clipboard if enabled
+          if (cfg.copyInteractiveCommands !== false) {
+            await safeCopyToClipboard(cmdExec.command);
+          }
+          
+          // Return immediately to give control back to the user
+          return {
+            success: true,
+            response: `The command requires interactive input. Please run it directly in your terminal:\n\n${cmdExec.command}\n\nTip: You can also ask me to run it with specific parameters to avoid prompts.`,
+            subMindName: subMind.name,
+            iterations: iteration,
+            context,
+            isInteractive: true
+          };
+        }
         
         // Update context with result
         action.result = lastCommandResult.success ? 'Success' : 'Failed';

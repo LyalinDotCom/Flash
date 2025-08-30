@@ -22,6 +22,7 @@ import {
 import { registerIOSubMind } from './agents/ioSubMind.js';
 import { registerImageSubMind } from './agents/imageSubMind.js';
 import { registerCLISubMind } from './agents/cliSubMind.js';
+import { registerAnalysisSubMind } from './agents/analysisSubMind.js';
 import { 
   buildMainAgentPrompt, 
   parseSubMindExecution, 
@@ -403,6 +404,7 @@ export async function main() {
   registerIOSubMind();
   registerImageSubMind();
   registerCLISubMind();
+  registerAnalysisSubMind();
   
   const argv = process.argv.slice(2);
   const cfg = loadFlashConfig();

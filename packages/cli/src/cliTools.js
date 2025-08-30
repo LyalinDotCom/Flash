@@ -1,6 +1,8 @@
 import { execa } from 'execa';
 import { colorize } from './colors.js';
 import path from 'node:path';
+import { analyzeIfWaitingForInput } from './agents/analysisExecutor.js';
+import { runGenkitGenerate } from './genkitRunner.js';
 
 // Check if a command exists
 export async function commandExists(command) {
@@ -29,6 +31,129 @@ export function parseCommandExecution(text) {
     workingDir: match[2]?.trim(),
     checkFirst: match[3]?.trim()
   };
+}
+
+// Interactive prompt detection patterns
+const INTERACTIVE_PATTERNS = {
+  // Direct prompts asking for input
+  directPrompts: [
+    /\?\s*$/m,                           // Question ending with ?
+    /:\s*$/m,                            // Colon prompt (password:, username:)
+    />\s*$/m,                            // Shell-like prompt
+    /›\s*$/m,                            // Arrow prompt
+    /\$\s*$/m,                           // Dollar prompt
+    /#\s*$/m,                            // Hash prompt
+  ],
+  
+  // Yes/No confirmation prompts
+  confirmationPrompts: [
+    /\(y\/n\)/i,
+    /\(yes\/no\)/i,
+    /\(y\/N\)/,
+    /\(Y\/n\)/,
+    /\[y\/n\]/i,
+    /\[yes\/no\]/i,
+    /continue\?/i,
+    /proceed\?/i,
+  ],
+  
+  // Password/credential prompts
+  credentialPrompts: [
+    /password\s*:\s*$/i,
+    /username\s*:\s*$/i,
+    /login\s*:\s*$/i,
+    /token\s*:\s*$/i,
+    /passphrase\s*:\s*$/i,
+    /enter\s+password/i,
+    /enter\s+username/i,
+  ],
+  
+  // Selection prompts
+  selectionPrompts: [
+    /select\s+an?\s+option/i,
+    /choose\s+an?\s+option/i,
+    /please\s+select/i,
+    /which\s+option/i,
+    /\[\d+\]/,                           // Numbered options [1], [2], etc.
+    /\d+\)\s*$/m,                        // Numbered list items ending line
+  ],
+  
+  // Input field prompts
+  inputPrompts: [
+    /enter\s+.+:\s*$/i,
+    /input\s+.+:\s*$/i,
+    /provide\s+.+:\s*$/i,
+    /type\s+.+:\s*$/i,
+  ]
+};
+
+// Patterns that indicate legitimate long-running operations
+const LONG_RUNNING_PATTERNS = [
+  // Progress indicators
+  /\d+%/,                               // Percentage progress
+  /\[\s*[#=\-.*]+\s*\]/,               // Progress bars
+  /\d+\/\d+/,                          // X/Y progress
+  /\d+\s+of\s+\d+/,                    // X of Y progress
+  
+  // Time/speed indicators
+  /\d+[a-z]*\/s/,                      // Speed indicators (MB/s, items/s)
+  /ETA:\s*\d+/i,                       // Estimated time remaining
+  /elapsed:/i,                         // Elapsed time
+  /remaining:/i,                       // Time remaining
+  
+  // Processing indicators
+  /processing\.\.\./i,
+  /downloading\.\.\./i,
+  /uploading\.\.\./i,
+  /building\.\.\./i,
+  /compiling\.\.\./i,
+  /installing\.\.\./i,
+  /running\.\.\./i,
+  
+  // Log streaming patterns
+  /\d{4}-\d{2}-\d{2}/,                 // Date timestamps
+  /\d{2}:\d{2}:\d{2}/,                 // Time timestamps
+  /\[(INFO|DEBUG|WARN|ERROR)\]/i,      // Log levels
+  /\[\d{4}-\d{2}-\d{2}.*?\]/,         // Timestamped logs
+];
+
+
+// Fallback pattern detection (simplified)
+function isInteractivePromptFallback(output) {
+  const interactiveIndicators = [
+    /\?\s*$/m,
+    /›/,
+    /\(y\/n\)/i,
+    /Select.*:/i,
+    /Choose.*:/i,
+  ];
+  
+  return interactiveIndicators.some(pattern => pattern.test(output));
+}
+
+// Check if output indicates a long-running operation
+function isLongRunningOperation(output) {
+  const recentOutput = output.slice(-500); // Check last 500 characters
+  
+  for (const pattern of LONG_RUNNING_PATTERNS) {
+    if (pattern.test(recentOutput)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Check if output has been actively updating
+function hasRecentActivity(outputHistory, timeWindow = 5000) {
+  if (outputHistory.length < 2) return false;
+  
+  const now = Date.now();
+  const recentEntries = outputHistory.filter(entry => 
+    now - entry.timestamp < timeWindow
+  );
+  
+  return recentEntries.length > 1;
 }
 
 // Execute a command with live streaming
@@ -72,18 +197,98 @@ export async function executeCommandLive(command, options = {}) {
       shell: true
     });
     
+    let isWaitingForInput = false;
+    let outputBuffer = '';
+    let outputHistory = []; // Track output timing for activity detection
+    let lastOutputTime = Date.now();
+    
+    // Set up intelligent interactive detection
+    let inactivityTimer = null;
+    const resetInactivityTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer);
+      
+      inactivityTimer = setTimeout(async () => {
+        const now = Date.now();
+        const timeSinceLastOutput = now - lastOutputTime;
+        
+        // Only check if there's been no output for at least 3 seconds
+        if (timeSinceLastOutput < 3000) {
+          resetInactivityTimer();
+          return;
+        }
+        
+        // Use AI analysis agent
+        const generateFn = async (prompt, provider, model, temp) => {
+          return runGenkitGenerate({ prompt, provider, model, temperature: temp });
+        };
+        
+        const isWaiting = await analyzeIfWaitingForInput(outputBuffer, timeSinceLastOutput, generateFn);
+        
+        if (isWaiting) {
+          // AI determined it's waiting for input - terminate
+          isWaitingForInput = true;
+          subprocess.kill('SIGINT');
+          // Don't print here - let the completion handler print once
+        } else {
+          // Not waiting for input - continue monitoring
+          // But only check periodically to avoid too many AI calls
+          setTimeout(() => {
+            if (!isWaitingForInput && subprocess.exitCode === null) {
+              resetInactivityTimer();
+            }
+          }, 5000); // Check again in 5 seconds
+        }
+      }, 4000); // Initial check after 4 seconds of inactivity
+    };
+    
+    // Track output for activity detection
+    const trackOutput = (data, source) => {
+      const timestamp = Date.now();
+      const content = data.toString();
+      
+      outputBuffer += content;
+      outputHistory.push({ timestamp, content, source });
+      lastOutputTime = timestamp;
+      
+      // Keep only recent history (last 2 minutes)
+      outputHistory = outputHistory.filter(entry => 
+        timestamp - entry.timestamp < 120000
+      );
+      
+      resetInactivityTimer();
+    };
+    
     // Stream stdout
     subprocess.stdout.on('data', (data) => {
       process.stdout.write(data);
+      trackOutput(data, 'stdout');
     });
     
     // Stream stderr
     subprocess.stderr.on('data', (data) => {
       process.stderr.write(data);
+      trackOutput(data, 'stderr');
     });
+    
+    // Start the inactivity timer
+    resetInactivityTimer();
     
     // Wait for completion
     const result = await subprocess;
+    
+    // Clear the timer
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    
+    if (isWaitingForInput) {
+      // Return with interactive flag - let the executor handle the messaging
+      return {
+        success: false,
+        isInteractive: true,
+        error: 'Command requires interactive input',
+        stdout: outputBuffer,
+        stderr: ''
+      };
+    }
     
     console.log(colorize('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'cyan'));
     console.log(colorize('✅ Command completed successfully', 'green'));
@@ -96,6 +301,20 @@ export async function executeCommandLive(command, options = {}) {
       stderr: result.stderr
     };
   } catch (error) {
+    // Clear timer on error
+    if (inactivityTimer) clearTimeout(inactivityTimer);
+    
+    if (isWaitingForInput) {
+      // Return with interactive flag - let the executor handle the messaging
+      return {
+        success: false,
+        isInteractive: true,
+        error: 'Command requires interactive input',
+        stdout: outputBuffer,
+        stderr: ''
+      };
+    }
+    
     console.log(colorize('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'red'));
     console.log(colorize('❌ Command failed', 'red'));
     console.log(colorize(`Exit code: ${error.exitCode}`, 'red'));

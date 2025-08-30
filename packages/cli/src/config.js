@@ -20,5 +20,6 @@ export function loadFlashConfig(startDir = process.cwd()) {
     googleModel: 'gemini-2.5-flash',
     localModel: 'gemma3n:e4b',
     temperature: 0.7,
+    copyInteractiveCommands: true,
   };
 }
