@@ -88,8 +88,6 @@ export async function generateImage(prompt, sourceFiles = [], cfg) {
     // Generate image using Gemini
     const result = await runGenkitGenerate({
       prompt: promptParts,
-      provider: 'google',
-      model: 'gemini-2.5-flash-image-preview',
       config: { responseModalities: ['TEXT', 'IMAGE'] }
     });
     

@@ -14,7 +14,7 @@ function findFlashRoot(fromUrl) {
   return null;
 }
 
-export async function runGenkitGenerate({ prompt, provider, model, temperature }) {
+export async function runGenkitGenerate({ prompt, provider, model, temperature, config }) {
   try {
     // Try relative import (dev mode from packages/cli/src)
     let mod;
@@ -28,11 +28,22 @@ export async function runGenkitGenerate({ prompt, provider, model, temperature }
       const url = pathToFileURL(genkitDist).href;
       mod = await import(url);
     }
-    if (!mod || !mod.generateText) {
-      throw new Error('generateText not found in @projectflash/genkit build. Run npm install and npm run build in packages/genkit.');
+    
+    // Check if this is an image generation request
+    if (config && config.responseModalities && config.responseModalities.includes('IMAGE')) {
+      if (!mod || !mod.generateImage) {
+        throw new Error('generateImage not found in @projectflash/genkit build. Run npm install and npm run build in packages/genkit.');
+      }
+      const result = await mod.generateImage({ prompt, config });
+      return { ok: true, text: result.text, media: result.media };
+    } else {
+      // Regular text generation
+      if (!mod || !mod.generateText) {
+        throw new Error('generateText not found in @projectflash/genkit build. Run npm install and npm run build in packages/genkit.');
+      }
+      const text = await mod.generateText({ prompt, provider, model, temperature });
+      return { ok: true, text };
     }
-    const text = await mod.generateText({ prompt, provider, model, temperature });
-    return { ok: true, text };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }

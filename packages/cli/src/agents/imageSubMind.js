@@ -33,20 +33,20 @@ Guidelines:
 - When reading source images, validate they exist first`;
 
 // Register the image generation sub-mind
-registerSubMind({
-  id: 'image',
-  name: 'Image Generation Agent',
-  description: 'Handles image generation, manipulation, and saving. Can generate images from text prompts and combine multiple source images.',
-  systemPrompt: IMAGE_SYSTEM_PROMPT,
-  tools: ['generate_image', 'read_file', 'write_image'],
-  examples: [
-    'generate an image of a sunset over mountains',
-    'create a logo for my startup',
-    'combine these two images',
-    'add this object to my photo',
-    'generate a profile picture',
-    'create an illustration of a dragon'
-  ]
-});
-
-export { registerSubMind as registerImageSubMind };
+export function registerImageSubMind() {
+  registerSubMind({
+    id: 'image',
+    name: 'Image Generation Agent',
+    description: 'Handles image generation, manipulation, and saving. Can generate images from text prompts and combine multiple source images.',
+    systemPrompt: IMAGE_SYSTEM_PROMPT,
+    tools: ['generate_image', 'read_file', 'write_image'],
+    examples: [
+      'generate an image of a sunset over mountains',
+      'create a logo for my startup',
+      'combine these two images',
+      'add this object to my photo',
+      'generate a profile picture',
+      'create an illustration of a dragon'
+    ]
+  });
+}

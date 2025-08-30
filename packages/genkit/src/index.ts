@@ -19,6 +19,7 @@ export const ai = genkit({
   ],
 });
 
+
 export type Provider = 'google' | 'local';
 
 export async function generateText(opts: {
@@ -45,6 +46,56 @@ export async function generateText(opts: {
   });
 
   return response.text;
+}
+
+export async function generateImage(opts: {
+  prompt: Array<{ text?: string; media?: { url: string } }>;
+  config?: { responseModalities?: string[] };
+}): Promise<{ text?: string; media?: { url: string } | null }> {
+  try {
+    // Convert our prompt format to what Genkit expects
+    // If it's just text prompts, join them
+    const hasMedia = opts.prompt.some(p => p.media);
+    
+    if (!hasMedia) {
+      // Simple text prompt
+      const textPrompt = opts.prompt
+        .filter(p => p.text)
+        .map(p => p.text)
+        .join(' ');
+      
+      const response = await ai.generate({
+        model: 'googleai/gemini-2.5-flash-image-preview',
+        prompt: textPrompt,
+        config: {
+          responseModalities: opts.config?.responseModalities || ['TEXT', 'IMAGE']
+        },
+      });
+      
+      return {
+        text: response.text || '',
+        media: response.media || null
+      };
+    } else {
+      // For now, handle media prompts as text description
+      const textParts = opts.prompt
+        .map(p => p.text || '[Image provided]')
+        .join(' ');
+      
+      const response = await ai.generate({
+        model: 'googleai/gemini-2.5-flash',
+        prompt: `Create an image based on: ${textParts}`,
+        config: { temperature: 0.7 },
+      });
+      
+      return {
+        text: response.text || 'Image generation with source images is not yet supported.',
+        media: null
+      };
+    }
+  } catch (error: any) {
+    throw new Error(`Image generation failed: ${error.message}`);
+  }
 }
 
 // Flow for Genkit Dev UI
