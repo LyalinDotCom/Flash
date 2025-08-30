@@ -58,12 +58,14 @@ export async function runDoctor() {
   console.log(colorize('3. Local Provider (Ollama)', 'cyan'));
   maxScore++;
   const hasOllama = await commandExists('ollama');
+  let ollamaRunning = false;
+  
   if (hasOllama) {
     console.log(colorize('  ✅ Ollama is installed', 'green'));
     healthScore++;
     
     // Check if Ollama is running
-    const ollamaRunning = await isOllamaRunning();
+    ollamaRunning = await isOllamaRunning();
     maxScore++;
     if (ollamaRunning) {
       console.log(colorize('  ✅ Ollama service is running', 'green'));
