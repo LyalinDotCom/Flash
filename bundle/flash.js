@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import readline from 'node:readline';
 import { loadFlashConfig } from './config.js';
 import { runGenkitGenerate } from './genkitRunner.js';
+import { loadEnv } from './env.js';
 
 function getPackageVersion() {
   try {
@@ -72,6 +73,8 @@ async function interactivePrompt() {
 }
 
 export async function main() {
+  // Load .env early so Genkit can read GEMINI_API_KEY / GOOGLE_API_KEY
+  loadEnv();
   const argv = process.argv.slice(2);
   const cfg = loadFlashConfig();
   if (argv.includes('-h') || argv.includes('--help')) {
