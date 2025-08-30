@@ -12,6 +12,7 @@
   "scripts": {
     "build": "node scripts/build.js",
     "prepare": "node scripts/build.js",
+    "link:local": "node scripts/link-local.js",
     "start": "node bundle/flash.js",
     "dev": "node packages/cli/index.js"
   }
