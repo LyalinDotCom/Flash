@@ -6,7 +6,31 @@ import { loadFlashConfig } from './config.js';
 import { runGenkitGenerate } from './genkitRunner.js';
 import { loadEnv } from './env.js';
 import { buildSystemPrompt } from './systemPrompt.js';
-import { flashAscii } from './ascii.js';
+import { shortFlashAscii, longFlashAscii, tinyFlashAscii, flashAscii } from './ascii.js';
+import { applyGradient } from './colors.js';
+
+function getAsciiArtWidth(ascii) {
+  const lines = ascii.trim().split('\n');
+  return Math.max(...lines.map(line => line.length));
+}
+
+function selectFlashAscii() {
+  // Get terminal width from various sources
+  const termWidth = process.stdout.columns || 
+                   parseInt(process.env.COLUMNS) || 
+                   80;
+  
+  const longWidth = getAsciiArtWidth(longFlashAscii);
+  const shortWidth = getAsciiArtWidth(shortFlashAscii);
+  
+  if (termWidth >= longWidth + 5) { // Add some padding
+    return longFlashAscii;
+  } else if (termWidth >= shortWidth + 5) {
+    return shortFlashAscii;
+  } else {
+    return tinyFlashAscii;
+  }
+}
 
 function getPackageVersion() {
   try {
@@ -60,7 +84,7 @@ function printWelcome() {
     '',
   ].join('\n');
 
-  console.log(flashAscii);
+  console.log(applyGradient(selectFlashAscii()));
   console.log(intro);
 }
 
