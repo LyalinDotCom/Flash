@@ -82,7 +82,8 @@ function getPackageVersion() {
 function printHelp() {
   const help = `Flash CLI - Multi-Agent AI Assistant\n\n` +
     `Usage:\n` +
-    `  Flash [options] [message]\n\n` +
+    `  Flash [options] [message]\n` +
+    `  Flash .          Enter multiline mode (press Enter twice to submit)\n\n` +
     `Options:\n` +
     `  -h, --help       Show help\n` +
     `  -v, --version    Show version\n` +
@@ -107,6 +108,7 @@ function printHelp() {
     `  Flash "generate a sunset image"      # Delegates to Image agent\n` +
     `  Flash "combine photo1.png photo2.png" # Image agent combines images\n` +
     `  Flash -l "offline test"\n` +
+    `  Flash .                              # Multiline input mode\n` +
     `  Flash --interactive`;
   console.log(help);
 }
@@ -119,6 +121,7 @@ function printWelcome() {
     '',
     'Quick start:',
     '  flash "your request"          # uses cloud, falls back to local if offline',
+    '  flash .                       # multiline mode (press Enter twice to submit)',
     '  flash -l "your request"       # force local mode',
     '  flash --init                  # first-time setup for local AI',
     '  flash --doctor                # check system health',
@@ -155,6 +158,33 @@ async function interactivePrompt() {
   });
 
   await new Promise((resolve) => rl.on('close', resolve));
+}
+
+async function getMultilineInput() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  console.log(colorize('\n📝 Enter your prompt (press Enter twice to submit):\n', 'cyan'));
+  
+  const lines = [];
+  let emptyLineCount = 0;
+  
+  return new Promise((resolve) => {
+    rl.on('line', (line) => {
+      if (line.trim() === '') {
+        emptyLineCount++;
+        if (emptyLineCount >= 1) {
+          rl.close();
+          resolve(lines.join('\n').trim());
+        }
+      } else {
+        emptyLineCount = 0;
+        lines.push(line);
+      }
+    });
+  });
 }
 
 // Generate with automatic fallback to local if online fails
@@ -364,10 +394,19 @@ export async function main() {
     }
   }
 
-  const message = argv.join(' ').trim();
+  let message = argv.join(' ').trim();
   let provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
   let model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
   const temperature = cfg.temperature;
+
+  // Check for multiline mode
+  if (message === '.') {
+    message = await getMultilineInput();
+    if (!message) {
+      console.log(colorize('No input provided. Exiting.', 'yellow'));
+      return;
+    }
+  }
 
   if (showSystem) {
     const sys = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion() });
