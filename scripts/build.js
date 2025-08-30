@@ -39,7 +39,7 @@ function build() {
   const shebang = '#!/usr/bin/env node\n';
   const header = '// Generated minimal bundle for Flash CLI\n';
   const entryHeader = '\n// Entry runner\n';
-  const runner = `\n(async () => {\n  try {\n    await main();\n  } catch (error) {\n    const msg = error instanceof Error ? (error.stack ?? error.message) : String(error);\n    console.error(msg);\n    process.exit(1);\n  }\n})();\n`;
+  const runner = `\n(async () => {\n  try {\n    await main();\n    // Ensure clean exit\n    process.exit(0);\n  } catch (error) {\n    const msg = error instanceof Error ? (error.stack ?? error.message) : String(error);\n    console.error(msg);\n    process.exit(1);\n  }\n})();\n`;
 
   copySrcToBundle();
   const current = fs.readFileSync(outFile, 'utf8');
