@@ -3,6 +3,7 @@ import { colorize } from './colors.js';
 import path from 'node:path';
 import { analyzeIfWaitingForInput } from './agents/analysisExecutor.js';
 import { runGenkitGenerate } from './genkitRunner.js';
+import { confirmDestructiveCommand } from './confirm.js';
 
 // Check if a command exists
 export async function commandExists(command) {
@@ -158,7 +159,20 @@ function hasRecentActivity(outputHistory, timeWindow = 5000) {
 
 // Execute a command with live streaming
 export async function executeCommandLive(command, options = {}) {
-  const { workingDir, checkFirst } = options;
+  const { workingDir, checkFirst, skipConfirmation = false, config = {} } = options;
+  
+  // Check if command is destructive and needs confirmation
+  const confirmEnabled = config.confirmDestructiveCommands !== false;
+  if (!skipConfirmation && confirmEnabled && isDestructiveCommand(command)) {
+    const confirmed = await confirmDestructiveCommand(command);
+    if (!confirmed) {
+      return {
+        success: false,
+        error: 'Command cancelled by user',
+        cancelled: true
+      };
+    }
+  }
   
   console.log(colorize('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'cyan'));
   console.log(colorize('🖥️  CLI Assistant:', 'brightCyan') + ' Executing command');
@@ -365,4 +379,64 @@ export function detectCommandType(input) {
   }
   
   return 'general';
+}
+
+// Patterns for destructive commands
+const DESTRUCTIVE_PATTERNS = [
+  // File/directory removal
+  /\brm\s+-rf?\b/i,
+  /\brm\s+.*\*/,              // rm with wildcards
+  /\brmdir\b/i,
+  /\bdel\s+\/[sf]\b/i,        // Windows del /s or /f
+  /\brd\s+\/s\b/i,            // Windows rd /s
+  
+  // Database operations
+  /\bdrop\s+(database|table|schema)\b/i,
+  /\btruncate\b/i,
+  /\bdelete\s+from\b/i,
+  
+  // Git destructive operations
+  /\bgit\s+reset\s+--hard\b/i,
+  /\bgit\s+clean\s+-[fd]+/i,
+  /\bgit\s+push\s+.*--force\b/i,
+  /\bgit\s+push\s+.*-f\b/i,
+  
+  // Package operations
+  /\bnpm\s+uninstall\b/i,
+  /\byarn\s+remove\b/i,
+  /\bpnpm\s+remove\b/i,
+  
+  // System operations
+  /\bkill\s+-9\b/i,
+  /\bkillall\b/i,
+  /\bpkill\b/i,
+  /\bformat\b/i,
+  /\bmkfs\b/i,
+  
+  // Docker operations
+  /\bdocker\s+.*prune.*-a\b/i,
+  /\bdocker\s+rm\s+.*-f\b/i,
+  /\bdocker\s+rmi\s+.*-f\b/i,
+];
+
+// Check if a command is potentially destructive
+export function isDestructiveCommand(command) {
+  const lowerCommand = command.toLowerCase();
+  
+  // Check against destructive patterns
+  for (const pattern of DESTRUCTIVE_PATTERNS) {
+    if (pattern.test(lowerCommand)) {
+      return true;
+    }
+  }
+  
+  // Additional checks for commands with sudo
+  if (lowerCommand.includes('sudo') && 
+      (lowerCommand.includes('rm') || 
+       lowerCommand.includes('delete') || 
+       lowerCommand.includes('format'))) {
+    return true;
+  }
+  
+  return false;
 }

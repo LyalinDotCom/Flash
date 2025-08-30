@@ -1,5 +1,7 @@
 # Flash ⚡
 
+> ⚠️ **IMPORTANT DISCLAIMER**: Flash can execute terminal commands on your behalf, including potentially destructive operations. This tool is experimental and not fully tested. Commands may modify or delete files, alter system settings, or perform other irreversible actions. Always review commands before allowing execution. **USE AT YOUR OWN RISK.**
+
 A smart multi-agent AI assistant for your terminal that works both online and offline. Flash helps with quick commands, code snippets, file operations, and everyday developer tasks - no complex setup required.
 
 ## Features
@@ -226,12 +228,14 @@ Flash can be configured using a `flash.config.json` file in your project root:
   "googleModel": "gemini-2.5-flash",
   "localModel": "gemma3n:e4b",
   "temperature": 0.7,
-  "copyInteractiveCommands": true
+  "copyInteractiveCommands": true,
+  "confirmDestructiveCommands": true
 }
 ```
 
 Settings:
 - `copyInteractiveCommands`: Automatically copy commands to clipboard when interactive input is detected (default: true)
+- `confirmDestructiveCommands`: Require confirmation before executing potentially destructive commands (default: true)
 
 ## Privacy
 

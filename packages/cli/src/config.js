@@ -21,5 +21,6 @@ export function loadFlashConfig(startDir = process.cwd()) {
     localModel: 'gemma3n:e4b',
     temperature: 0.7,
     copyInteractiveCommands: true,
+    confirmDestructiveCommands: true,
   };
 }

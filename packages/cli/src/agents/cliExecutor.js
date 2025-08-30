@@ -89,8 +89,21 @@ export async function executeCliSubMind(subMind, userRequest, generateFn, cfg) {
         // Execute the command
         lastCommandResult = await executeCommandLive(cmdExec.command, {
           workingDir: cmdExec.workingDir,
-          checkFirst: cmdExec.checkFirst
+          checkFirst: cmdExec.checkFirst,
+          config: cfg
         });
+        
+        // Check if command was cancelled by user
+        if (lastCommandResult.cancelled) {
+          console.log(colorize(`✅ ${subMind.name} stopped - command cancelled by user\n`, 'green'));
+          return {
+            success: true,
+            response: 'The command was cancelled for safety reasons. If you want to proceed, please run it directly in your terminal or confirm you want me to execute it.',
+            subMindName: subMind.name,
+            iterations: iteration,
+            context
+          };
+        }
         
         // Check if command requires interactive input
         if (lastCommandResult.isInteractive) {
