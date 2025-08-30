@@ -7,6 +7,7 @@ import readline from 'node:readline';
 import { loadFlashConfig } from './config.js';
 import { runGenkitGenerate } from './genkitRunner.js';
 import { loadEnv } from './env.js';
+import { buildSystemPrompt } from './systemPrompt.js';
 
 function getPackageVersion() {
   try {
@@ -36,6 +37,7 @@ function printHelp() {
     `  -i, --interactive Start simple interactive prompt\n` +
     `  -l, --local      Use local provider (Ollama via Genkit)\n` +
     `  -m, --model <m>  Override model name (provider-specific)\n\n` +
+    `  --show-system-prompt  Output the computed system prompt and exit\n\n` +
     `Examples:\n` +
     `  Flash --help\n` +
     `  Flash --version\n` +
@@ -93,6 +95,7 @@ export async function main() {
   // Parse flags: -l/--local and -m/--model
   let useLocal = argv.includes('-l') || argv.includes('--local');
   let modelOverride;
+  let showSystem = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '-m' || a === '--model') {
@@ -102,18 +105,30 @@ export async function main() {
     } else if (a === '-l' || a === '--local') {
       argv.splice(i, 1);
       i--;
+    } else if (a === '--show-system' || a === '--show-system-prompt') {
+      showSystem = true;
+      argv.splice(i, 1);
+      i--;
     }
   }
 
   const message = argv.join(' ').trim();
+  const provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
+  const model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
+  const temperature = cfg.temperature;
+
+  if (showSystem) {
+    const sys = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion() });
+    console.log(sys);
+    return;
+  }
   if (message) {
-    const provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
-    const model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
-    const temperature = cfg.temperature;
+    const sysPrompt = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion() });
+    const finalPrompt = `${sysPrompt}\n\nUser: ${message}`;
 
     if (provider === 'local') {
       // Local always goes through Genkit Ollama plugin
-      const res = await runGenkitGenerate({ prompt: message, provider, model, temperature });
+      const res = await runGenkitGenerate({ prompt: finalPrompt, provider, model, temperature });
       if (res.ok) {
         console.log(res.text);
       } else {
@@ -128,7 +143,7 @@ export async function main() {
     }
 
     // Google provider via Genkit
-    const res = await runGenkitGenerate({ prompt: message, provider, model, temperature });
+    const res = await runGenkitGenerate({ prompt: finalPrompt, provider, model, temperature });
     if (res.ok) {
       console.log(res.text);
     } else {
@@ -146,11 +161,10 @@ export async function main() {
     }
     const stdinText = Buffer.concat(chunks).toString('utf8').trim();
     if (stdinText.length > 0) {
-      const provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
-      const model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
-      const temperature = cfg.temperature;
+      const sysPrompt = await buildSystemPrompt({ provider, model, cliVersion: getPackageVersion() });
+      const finalPrompt = `${sysPrompt}\n\nUser: ${stdinText}`;
       if (provider === 'local') {
-        const res = await runGenkitGenerate({ prompt: stdinText, provider, model, temperature });
+        const res = await runGenkitGenerate({ prompt: finalPrompt, provider, model, temperature });
         if (res.ok) {
           console.log(res.text);
         } else {
@@ -158,7 +172,7 @@ export async function main() {
           console.log(`Flash received from stdin: ${stdinText}`);
         }
       } else {
-        const res = await runGenkitGenerate({ prompt: stdinText, provider, model, temperature });
+        const res = await runGenkitGenerate({ prompt: finalPrompt, provider, model, temperature });
         if (res.ok) {
           console.log(res.text);
         } else {
