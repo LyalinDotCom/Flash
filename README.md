@@ -9,6 +9,8 @@ A smart AI assistant for your terminal that works both online and offline. Flash
 - **🎨 Beautiful CLI** - Colorful ASCII art that adapts to your terminal size
 - **⚡ Lightning Fast** - Optimized for quick, practical responses
 - **🔧 Zero Config** - Works out of the box with smart defaults
+- **📁 File Operations** - Read and write files in your current directory
+- **💬 Smart Clarifications** - Asks for details when your request is ambiguous
 
 ## Quick Start
 
@@ -58,7 +60,21 @@ flash "how to find large files on macOS"
 
 # Piped input
 cat error.log | flash "explain this error"
+
+# File operations
+flash "create a shopping list file"
+flash "read the package.json file"
+flash "write a Python hello world script"
+flash "save the 50 US state capitals to a CSV file"
 ```
+
+## File Operations
+
+Flash can read and write files in your current directory. Just ask naturally:
+
+- **Reading**: "show me what's in config.json"
+- **Writing**: "create a todo list", "save this to notes.txt"
+- **Security**: Flash can only access files in the current directory (no paths allowed)
 
 ## Offline Mode
 

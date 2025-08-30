@@ -13,6 +13,12 @@ import { runInit } from './init.js';
 import { runDoctor } from './doctor.js';
 import { Spinner } from './spinner.js';
 import { handleClarification, needsClarification } from './interactive.js';
+import { 
+  hasToolCalls, 
+  parseToolCalls, 
+  executeTools, 
+  removeToolCalls 
+} from './fileTools.js';
 
 function getAsciiArtWidth(ascii) {
   const lines = ascii.trim().split('\n');
@@ -165,6 +171,43 @@ async function generateWithFallback(finalPrompt, provider, model, temperature, c
   }
 }
 
+// Handle tool execution and provide simple feedback
+async function handleToolsAndGenerate(response, sysPrompt, userMessage, provider, model, temperature, cfg) {
+  // Check if response contains tool calls
+  if (hasToolCalls(response)) {
+    // Parse and execute tools
+    const toolCalls = parseToolCalls(response);
+    const toolResults = await executeTools(toolCalls);
+    
+    // Get the clean response without tool calls
+    const cleanResponse = removeToolCalls(response);
+    
+    // If there's a clean response from the AI, show it
+    if (cleanResponse.trim()) {
+      return cleanResponse;
+    }
+    
+    // Otherwise, provide simple feedback about what was done
+    let feedback = '';
+    for (const result of toolResults) {
+      if (result.tool === 'read') {
+        if (result.content) {
+          feedback += `\nRead file: ${result.filename}\n${result.content}`;
+        }
+      } else if (result.tool === 'write') {
+        if (result.success) {
+          feedback += `\n✅ Created file: ${result.filename}`;
+        }
+      }
+    }
+    
+    return feedback || 'Operation completed.';
+  }
+  
+  // No tools, return response as-is
+  return response;
+}
+
 export async function main() {
   // Load .env early so Genkit can read GEMINI_API_KEY / GOOGLE_API_KEY
   loadEnv();
@@ -254,10 +297,18 @@ export async function main() {
         // Handle the clarification flow
         const clarifiedResponse = await handleClarification(res.text, generateFollowUp);
         if (clarifiedResponse && clarifiedResponse.ok) {
-          console.log(clarifiedResponse.text);
+          // Handle tool calls in clarified response
+          const finalResponse = await handleToolsAndGenerate(
+            clarifiedResponse.text, sysPrompt, message, usedProvider, usedModel, temperature, cfg
+          );
+          console.log(finalResponse);
         }
       } else {
-        console.log(res.text);
+        // Handle tool calls if present
+        const finalResponse = await handleToolsAndGenerate(
+          res.text, sysPrompt, message, usedProvider, usedModel, temperature, cfg
+        );
+        console.log(finalResponse);
       }
     } else {
       console.error(`[Flash] Generation failed: ${res.error}`);
@@ -312,10 +363,18 @@ export async function main() {
           // Handle the clarification flow
           const clarifiedResponse = await handleClarification(res.text, generateFollowUp);
           if (clarifiedResponse && clarifiedResponse.ok) {
-            console.log(clarifiedResponse.text);
+            // Handle tool calls in clarified response
+            const finalResponse = await handleToolsAndGenerate(
+              clarifiedResponse.text, sysPrompt, stdinText, usedProvider, usedModel, temperature, cfg
+            );
+            console.log(finalResponse);
           }
         } else {
-          console.log(res.text);
+          // Handle tool calls if present
+          const finalResponse = await handleToolsAndGenerate(
+            res.text, sysPrompt, stdinText, usedProvider, usedModel, temperature, cfg
+          );
+          console.log(finalResponse);
         }
       } else {
         console.error(`[Flash] Generation failed: ${res.error}`);
