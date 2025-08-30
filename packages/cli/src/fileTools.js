@@ -189,8 +189,11 @@ export function removeToolCalls(response) {
   // Remove READ_FILE calls
   response = response.replace(/READ_FILE:\s*.+?(?:\n|$)/g, '');
   
-  // Remove WRITE_FILE calls
-  response = response.replace(/WRITE_FILE:\s*.+?\nCONTENT:\n[\s\S]*?(?:END_CONTENT|$)/g, '');
+  // Remove WRITE_FILE calls with better pattern matching
+  response = response.replace(/WRITE_FILE:\s*.+?\nCONTENT:\n[\s\S]*?END_CONTENT/g, '');
+  
+  // Also remove any standalone END_CONTENT that might be left
+  response = response.replace(/END_CONTENT/g, '');
   
   return response.trim();
 }

@@ -8,6 +8,8 @@ import { main } from './src/flash.js';
 async function run() {
   try {
     await main();
+    // Ensure clean exit
+    process.exit(0);
   } catch (error) {
     const msg = error instanceof Error ? error.stack ?? error.message : String(error);
     console.error(msg);
