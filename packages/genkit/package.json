@@ -1,0 +1,22 @@
+{
+  "name": "@projectflash/genkit",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "genkit": "^1.1.0",
+    "@genkit-ai/googleai": "^1.1.0",
+    "data-urls": "^5.0.0",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "tsx": "^4.20.0",
+    "@types/node": "^20.11.24"
+  }
+}

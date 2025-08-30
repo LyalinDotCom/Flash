@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import readline from 'node:readline';
+import { loadFlashConfig } from './config.js';
+import { runGenkitGenerate } from './genkitRunner.js';
 
 function getPackageVersion() {
   try {
@@ -30,11 +32,14 @@ function printHelp() {
     `Options:\n` +
     `  -h, --help       Show help\n` +
     `  -v, --version    Show version\n` +
-    `  -i, --interactive Start simple interactive prompt\n\n` +
+    `  -i, --interactive Start simple interactive prompt\n` +
+    `  -l, --local      Use local provider (Ollama via Genkit)\n` +
+    `  -m, --model <m>  Override model name (provider-specific)\n\n` +
     `Examples:\n` +
     `  Flash --help\n` +
     `  Flash --version\n` +
     `  Flash "hello world"\n` +
+    `  Flash -l -m gemma3n:e4b "offline test"\n` +
     `  Flash --interactive`;
   console.log(help);
 }
@@ -68,7 +73,7 @@ async function interactivePrompt() {
 
 export async function main() {
   const argv = process.argv.slice(2);
-
+  const cfg = loadFlashConfig();
   if (argv.includes('-h') || argv.includes('--help')) {
     printHelp();
     return;
@@ -82,9 +87,36 @@ export async function main() {
     return;
   }
 
+  // Parse flags: -l/--local and -m/--model
+  let useLocal = argv.includes('-l') || argv.includes('--local');
+  let modelOverride;
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '-m' || a === '--model') {
+      modelOverride = argv[i + 1];
+      argv.splice(i, 2);
+      i--;
+    } else if (a === '-l' || a === '--local') {
+      argv.splice(i, 1);
+      i--;
+    }
+  }
+
   const message = argv.join(' ').trim();
   if (message) {
-    console.log(`Flash received: ${message}`);
+    const provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
+    const model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
+    const temperature = cfg.temperature;
+    const res = await runGenkitGenerate({ prompt: message, provider, model, temperature });
+    if (res.ok) {
+      console.log(res.text);
+    } else {
+      console.error(`[Flash] Genkit not ready: ${res.error}`);
+      console.log(`Flash received: ${message}`);
+      console.log('Tip: Install dependencies and build Genkit package:');
+      console.log('  cd Flash/packages/genkit && npm install && npm run build');
+      console.log('  Ensure GEMINI_API_KEY is set for Google provider.');
+    }
   } else if (!process.stdin.isTTY) {
     // If input is piped, echo it.
     const chunks = [];
@@ -93,7 +125,16 @@ export async function main() {
     }
     const stdinText = Buffer.concat(chunks).toString('utf8').trim();
     if (stdinText.length > 0) {
-      console.log(`Flash received from stdin: ${stdinText}`);
+      const provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
+      const model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
+      const temperature = cfg.temperature;
+      const res = await runGenkitGenerate({ prompt: stdinText, provider, model, temperature });
+      if (res.ok) {
+        console.log(res.text);
+      } else {
+        console.error(`[Flash] Genkit not ready: ${res.error}`);
+        console.log(`Flash received from stdin: ${stdinText}`);
+      }
     } else {
       printHelp();
     }

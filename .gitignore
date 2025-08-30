@@ -61,4 +61,4 @@ playwright/.cache/
 
 # Project-specific
 bundle/
-
+packages/genkit/dist/
