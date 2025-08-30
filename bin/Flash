@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+FLASH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ENTRY="$FLASH_DIR/bundle/flash.js"
+
+if [ ! -f "$ENTRY" ]; then
+  echo "[Flash] Building minimal bundle..."
+  node "$FLASH_DIR/scripts/build.js"
+fi
+
+exec node "$ENTRY" "$@"
+
