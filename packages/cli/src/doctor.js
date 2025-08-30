@@ -108,10 +108,20 @@ export async function runDoctor() {
   // Check 4: Genkit Package
   console.log(colorize('4. Genkit Package', 'cyan'));
   maxScore++;
-  const genkitPath = path.resolve(
-    path.dirname(fileURLToPath(import.meta.url)), 
-    '../../genkit/dist/index.js'
-  );
+  
+  // When running from bundle, we need to check relative to the project root
+  const currentDir = path.dirname(fileURLToPath(import.meta.url));
+  let genkitPath;
+  
+  // Check if we're running from bundle or source
+  if (currentDir.includes('/bundle')) {
+    // Running from bundle, go up to Flash root then to packages/genkit
+    genkitPath = path.resolve(currentDir, '../packages/genkit/dist/index.js');
+  } else {
+    // Running from source
+    genkitPath = path.resolve(currentDir, '../../genkit/dist/index.js');
+  }
+  
   const genkitBuilt = fs.existsSync(genkitPath);
   
   if (genkitBuilt) {
