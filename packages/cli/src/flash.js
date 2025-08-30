@@ -6,6 +6,7 @@ import { loadFlashConfig } from './config.js';
 import { runGenkitGenerate } from './genkitRunner.js';
 import { loadEnv } from './env.js';
 import { buildSystemPrompt } from './systemPrompt.js';
+import { flashAscii } from './ascii.js';
 
 function getPackageVersion() {
   try {
@@ -43,6 +44,24 @@ function printHelp() {
     `  Flash -l -m gemma3n:e4b "offline test"\n` +
     `  Flash --interactive`;
   console.log(help);
+}
+
+function printWelcome() {
+  const intro = [
+    '',
+    'Flash helps with quick, simple terminal requests — and will do its best for more complex tasks.',
+    'Use -l for local (Ollama via Genkit) or rely on cloud (Gemini) by default.',
+    '',
+    'Quick start:',
+    '  - Flash "your request"',
+    '  - Flash -l "your request"     # use local model (defaults to gemma3n:e4b)',
+    '  - Flash --show-system-prompt  # see hidden system context',
+    '  - Flash --help                # full options',
+    '',
+  ].join('\n');
+
+  console.log(flashAscii);
+  console.log(intro);
 }
 
 async function interactivePrompt() {
@@ -179,9 +198,9 @@ export async function main() {
         }
       }
     } else {
-      printHelp();
+      printWelcome();
     }
   } else {
-    printHelp();
+    printWelcome();
   }
 }
