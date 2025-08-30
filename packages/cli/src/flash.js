@@ -1,16 +1,24 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import readline from 'node:readline';
 
 function getPackageVersion() {
   try {
-    const rootPkg = JSON.parse(
-      fs.readFileSync(path.resolve(process.cwd(), 'Flash', 'package.json'), 'utf8')
-    );
-    return rootPkg.version || '0.0.0';
-  } catch {
-    return '0.0.0';
-  }
+    // Resolve from the current module location and search upwards for package.json
+    let dir = path.dirname(fileURLToPath(import.meta.url));
+    for (let i = 0; i < 5; i++) {
+      const candidate = path.join(dir, 'package.json');
+      if (fs.existsSync(candidate)) {
+        const pkg = JSON.parse(fs.readFileSync(candidate, 'utf8'));
+        if (pkg && pkg.version) return pkg.version;
+      }
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  } catch {}
+  return '0.0.0';
 }
 
 function printHelp() {
@@ -91,4 +99,3 @@ export async function main() {
     printHelp();
   }
 }
-
