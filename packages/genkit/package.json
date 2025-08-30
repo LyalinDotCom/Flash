@@ -10,6 +10,7 @@
   "dependencies": {
     "genkit": "^1.1.0",
     "@genkit-ai/googleai": "^1.1.0",
+    "genkitx-ollama": "*",
     "data-urls": "^5.0.0",
     "node-fetch": "^3.3.2",
     "zod": "^3.23.8"

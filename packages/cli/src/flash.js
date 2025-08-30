@@ -108,6 +108,24 @@ export async function main() {
     const provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
     const model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
     const temperature = cfg.temperature;
+
+    if (provider === 'local') {
+      // Local always goes through Genkit Ollama plugin
+      const res = await runGenkitGenerate({ prompt: message, provider, model, temperature });
+      if (res.ok) {
+        console.log(res.text);
+      } else {
+        console.error(`[Flash] Local generation via Genkit failed: ${res.error}`);
+        console.log(`Flash received: ${message}`);
+        console.log('Tip: Ensure Ollama is running and the model exists:');
+        console.log(`  ollama list  # expect to see ${model}`);
+        console.log('Tip: Ensure Genkit Ollama plugin is installed and built:');
+        console.log('  cd Flash/packages/genkit && npm install && npm run build');
+      }
+      return;
+    }
+
+    // Google provider via Genkit
     const res = await runGenkitGenerate({ prompt: message, provider, model, temperature });
     if (res.ok) {
       console.log(res.text);
@@ -129,12 +147,22 @@ export async function main() {
       const provider = useLocal ? 'local' : (cfg.defaultProvider === 'local' ? 'local' : 'google');
       const model = modelOverride || (provider === 'local' ? cfg.localModel : cfg.googleModel);
       const temperature = cfg.temperature;
-      const res = await runGenkitGenerate({ prompt: stdinText, provider, model, temperature });
-      if (res.ok) {
-        console.log(res.text);
+      if (provider === 'local') {
+        const res = await runGenkitGenerate({ prompt: stdinText, provider, model, temperature });
+        if (res.ok) {
+          console.log(res.text);
+        } else {
+          console.error(`[Flash] Local generation via Genkit failed: ${res.error}`);
+          console.log(`Flash received from stdin: ${stdinText}`);
+        }
       } else {
-        console.error(`[Flash] Genkit not ready: ${res.error}`);
-        console.log(`Flash received from stdin: ${stdinText}`);
+        const res = await runGenkitGenerate({ prompt: stdinText, provider, model, temperature });
+        if (res.ok) {
+          console.log(res.text);
+        } else {
+          console.error(`[Flash] Genkit not ready: ${res.error}`);
+          console.log(`Flash received from stdin: ${stdinText}`);
+        }
       }
     } else {
       printHelp();

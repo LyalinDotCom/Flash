@@ -1,8 +1,23 @@
 import { genkit, z } from 'genkit';
 import { googleAI } from '@genkit-ai/googleai';
+import { ollama } from 'genkitx-ollama';
 
-// Note: Ollama plugin is optional and may be added later.
-export const ai = genkit({ plugins: [googleAI()] });
+const OLLAMA_SERVER = process.env.OLLAMA_HOST || 'http://127.0.0.1:11434';
+
+export const ai = genkit({
+  plugins: [
+    googleAI(),
+    ollama({
+      serverAddress: OLLAMA_SERVER,
+      models: [
+        {
+          name: 'gemma3n:e4b',
+          type: 'generate',
+        },
+      ],
+    }),
+  ],
+});
 
 export type Provider = 'google' | 'local';
 
@@ -17,7 +32,7 @@ export async function generateText(opts: {
   const temperature = typeof opts.temperature === 'number' ? opts.temperature : 0.7;
 
   const model = provider === 'local'
-    // Prefer model helper if available; otherwise string identifier is acceptable.
+    // Use string identifier for Ollama models
     ? (modelName ? `ollama/${modelName}` : 'ollama/gemma3n:e4b')
     : (modelName
         ? googleAI.model(modelName)
