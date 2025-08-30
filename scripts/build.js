@@ -14,14 +14,25 @@ function ensureDir(p) {
 
 function copySrcToBundle() {
   ensureDir(outDir);
-  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
-  for (const e of entries) {
-    if (e.isFile() && e.name.endsWith('.js')) {
-      const from = path.join(srcDir, e.name);
-      const to = path.join(outDir, e.name);
-      fs.copyFileSync(from, to);
+  
+  // Copy all .js files recursively
+  function copyDir(fromDir, toDir) {
+    ensureDir(toDir);
+    const entries = fs.readdirSync(fromDir, { withFileTypes: true });
+    for (const e of entries) {
+      const fromPath = path.join(fromDir, e.name);
+      const toPath = path.join(toDir, e.name);
+      
+      if (e.isDirectory()) {
+        // Recursively copy subdirectories
+        copyDir(fromPath, toPath);
+      } else if (e.isFile() && e.name.endsWith('.js')) {
+        fs.copyFileSync(fromPath, toPath);
+      }
     }
   }
+  
+  copyDir(srcDir, outDir);
 }
 
 function build() {
