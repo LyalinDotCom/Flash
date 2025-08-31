@@ -7,15 +7,103 @@ import {
   pullOllamaModel 
 } from './utils.js';
 import { applyGradient, colorize } from './colors.js';
+import { askUser } from './interactive.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const OLLAMA_INSTALL_URL = 'https://ollama.ai/install';
 const DEFAULT_MODEL = 'gemma:2b'; // Using gemma:2b as gemma3n:e4b doesn't exist in Ollama registry
 
-export async function runInit() {
-  console.log(applyGradient('\n🚀 Flash Init - Setting up your local AI environment\n'));
+// Find or create .env file
+async function findOrCreateEnvFile() {
+  // First check current directory
+  const cwdEnv = path.join(process.cwd(), '.env');
+  if (fs.existsSync(cwdEnv)) {
+    return cwdEnv;
+  }
   
-  // Step 1: Check if Ollama is installed
-  console.log(colorize('Step 1: Checking for Ollama installation...', 'cyan'));
+  // Then check Flash project root
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  let flashRoot = __dirname;
+  
+  // Navigate up to find Flash root (contains package.json with workspaces)
+  for (let i = 0; i < 5; i++) {
+    const pkgPath = path.join(flashRoot, 'package.json');
+    if (fs.existsSync(pkgPath)) {
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        if (pkg.workspaces) {
+          // Found Flash root
+          const envPath = path.join(flashRoot, '.env');
+          return envPath;
+        }
+      } catch {}
+    }
+    const parent = path.dirname(flashRoot);
+    if (parent === flashRoot) break;
+    flashRoot = parent;
+  }
+  
+  // Default to current directory
+  return cwdEnv;
+}
+
+export async function runInit() {
+  console.log(applyGradient('\n🚀 Flash Init - Setting up AI environment\n'));
+  
+  // Step 1: Check for Gemini API key
+  console.log(colorize('Step 1: Checking for Gemini API key...', 'cyan'));
+  const hasGeminiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  
+  if (!hasGeminiKey) {
+    console.log(colorize('❌ No Gemini API key found.', 'red'));
+    console.log('\nGemini API provides cloud-based AI with the latest models.');
+    console.log('Get a free API key at: ' + colorize('https://makersuite.google.com/app/apikey', 'blue'));
+    
+    const wantsToSetKey = await confirm('\nWould you like to set up a Gemini API key now?');
+    if (wantsToSetKey) {
+      const apiKey = await askUser(colorize('Enter your Gemini API key: ', 'cyan'));
+      
+      if (apiKey && apiKey.trim()) {
+        // Find or create .env file
+        const envPath = await findOrCreateEnvFile();
+        
+        // Read existing .env content
+        let envContent = '';
+        if (fs.existsSync(envPath)) {
+          envContent = fs.readFileSync(envPath, 'utf8');
+        }
+        
+        // Check if GEMINI_API_KEY already exists
+        if (envContent.includes('GEMINI_API_KEY=')) {
+          // Update existing key
+          envContent = envContent.replace(/GEMINI_API_KEY=.*$/m, `GEMINI_API_KEY=${apiKey.trim()}`);
+        } else {
+          // Add new key
+          if (envContent && !envContent.endsWith('\n')) {
+            envContent += '\n';
+          }
+          envContent += `GEMINI_API_KEY=${apiKey.trim()}\n`;
+        }
+        
+        // Write updated content
+        fs.writeFileSync(envPath, envContent);
+        console.log(colorize('✅ Gemini API key saved to .env file!', 'green'));
+        console.log('You can now use Flash with cloud AI (default mode).');
+      } else {
+        console.log(colorize('No key provided. You can add it later to .env file.', 'yellow'));
+      }
+    } else {
+      console.log('\nYou can add it later by creating a .env file with:');
+      console.log(colorize('GEMINI_API_KEY=your-key-here', 'green'));
+    }
+  } else {
+    console.log(colorize('✅ Gemini API key is configured!', 'green'));
+  }
+  
+  // Step 2: Check if Ollama is installed
+  console.log(colorize('\nStep 2: Checking for Ollama installation...', 'cyan'));
   const hasOllama = await commandExists('ollama');
   
   if (!hasOllama) {
@@ -40,8 +128,8 @@ export async function runInit() {
     console.log(colorize('✅ Ollama is installed!', 'green'));
   }
   
-  // Step 2: Check if Ollama is running
-  console.log(colorize('\nStep 2: Checking if Ollama service is running...', 'cyan'));
+  // Step 3: Check if Ollama is running
+  console.log(colorize('\nStep 3: Checking if Ollama service is running...', 'cyan'));
   const ollamaRunning = await isOllamaRunning();
   
   if (!ollamaRunning) {
@@ -75,8 +163,8 @@ export async function runInit() {
     console.log(colorize('✅ Ollama service is running!', 'green'));
   }
   
-  // Step 3: Check for default model
-  console.log(colorize(`\nStep 3: Checking for default model (${DEFAULT_MODEL})...`, 'cyan'));
+  // Step 4: Check for default model
+  console.log(colorize(`\nStep 4: Checking for default model (${DEFAULT_MODEL})...`, 'cyan'));
   const hasModel = await ollamaModelExists(DEFAULT_MODEL);
   
   if (!hasModel) {
@@ -100,8 +188,8 @@ export async function runInit() {
     console.log(colorize(`✅ Model ${DEFAULT_MODEL} is already installed!`, 'green'));
   }
   
-  // Step 4: Test the setup
-  console.log(colorize('\nStep 4: Testing local AI setup...', 'cyan'));
+  // Step 5: Test the setup
+  console.log(colorize('\nStep 5: Testing local AI setup...', 'cyan'));
   console.log('Running a quick test with the local model...\n');
   
   try {
@@ -128,11 +216,15 @@ export async function runInit() {
   
   // Final summary
   console.log(applyGradient('\n✨ Flash Init Complete!\n'));
-  console.log('You can now use Flash with local AI:');
-  console.log(colorize('  flash -l "your prompt here"', 'green'));
+  console.log('You can now use Flash:');
+  if (hasGeminiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) {
+    console.log(colorize('  flash "your prompt"', 'green') + '      - Use cloud AI (Gemini)');
+  }
+  console.log(colorize('  flash -l "your prompt"', 'green') + '   - Use local AI (Ollama)');
   console.log('\nFlash will automatically fall back to local mode when offline.');
   console.log('\nOther useful commands:');
-  console.log('  ' + colorize('ollama list', 'cyan') + '           - See installed models');
-  console.log('  ' + colorize('ollama pull <model>', 'cyan') + '  - Install other models');
-  console.log('  ' + colorize('flash --help', 'cyan') + '          - See all Flash options');
+  console.log('  ' + colorize('flash --doctor', 'cyan') + '       - Check system health');
+  console.log('  ' + colorize('ollama list', 'cyan') + '          - See installed models');
+  console.log('  ' + colorize('ollama pull <model>', 'cyan') + ' - Install other models');
+  console.log('  ' + colorize('flash --help', 'cyan') + '         - See all Flash options');
 }
